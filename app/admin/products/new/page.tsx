@@ -1,24 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { 
   ArrowLeft, 
   Upload, 
-  X, 
   Plus, 
   Trash2,
   Save,
-  Eye,
   Globe,
   Tag,
-  Package as PackageIcon
+  Package as PackageIcon,
+  AlertCircle
 } from "lucide-react";
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
 
 export default function NewProductPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingCategories, setIsFetchingCategories] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const [formData, setFormData] = useState({
     name: "",
     slug: "",
@@ -40,10 +48,29 @@ export default function NewProductPage() {
     seoTitle: "",
     seoDescription: "",
   });
+  
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
-  const [variants, setVariants] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [activeTab, setActiveTab] = useState<"general" | "images" | "variants" | "seo">("general");
+
+  // Fetch categories on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch("/api/admin/categories");
+      if (response.ok) {
+        const data = await response.json();
+        setCategories(data.categories || []);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    } finally {
+      setIsFetchingCategories(false);
+    }
+  };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -55,7 +82,10 @@ export default function NewProductPage() {
   };
 
   const removeImage = (index: number) => {
-    URL.revokeObjectURL(images[index].preview);
+    // Check if image exists before revoking URL
+    if (images[index] && images[index].preview) {
+      URL.revokeObjectURL(images[index].preview);
+    }
     setImages(images.filter((_, i) => i !== index));
   };
 
@@ -67,34 +97,75 @@ export default function NewProductPage() {
     setFormData({ ...formData, slug });
   };
 
+  const validateForm = () => {
+    if (!formData.name.trim()) {
+      setError("Product name is required");
+      return false;
+    }
+    if (!formData.slug.trim()) {
+      setError("Slug is required");
+      return false;
+    }
+    if (!formData.sku.trim()) {
+      setError("SKU is required");
+      return false;
+    }
+    if (!formData.price || parseFloat(formData.price) <= 0) {
+      setError("Price must be greater than 0");
+      return false;
+    }
+    if (!formData.description.trim()) {
+      setError("Description is required");
+      return false;
+    }
+    if (!formData.categoryId) {
+      setError("Please select a category");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
 
-    const submitData = new FormData();
-    submitData.append("data", JSON.stringify({
-      ...formData,
-      price: parseFloat(formData.price),
-      comparePrice: formData.comparePrice ? parseFloat(formData.comparePrice) : null,
-      quantity: parseInt(formData.quantity),
-      lowStockThreshold: parseInt(formData.lowStockThreshold),
-      tags: formData.tags.split(",").map(t => t.trim()).filter(Boolean),
-      weight: formData.weight ? parseFloat(formData.weight) : null,
-    }));
-    images.forEach(img => {
-      submitData.append("images", img.file);
-    });
-
     try {
+      const submitData = new FormData();
+      submitData.append("data", JSON.stringify({
+        ...formData,
+        price: parseFloat(formData.price),
+        comparePrice: formData.comparePrice ? parseFloat(formData.comparePrice) : null,
+        costPrice: formData.costPrice ? parseFloat(formData.costPrice) : null,
+        quantity: parseInt(formData.quantity),
+        lowStockThreshold: parseInt(formData.lowStockThreshold),
+        tags: formData.tags.split(",").map(t => t.trim()).filter(Boolean),
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+      }));
+      images.forEach(img => {
+        submitData.append("images", img.file);
+      });
+
       const response = await fetch("/api/admin/products", {
         method: "POST",
         body: submitData,
       });
+
+      const data = await response.json();
+
       if (response.ok) {
         router.push("/admin/products");
+      } else {
+        setError(data.error || "Failed to create product");
       }
     } catch (error) {
       console.error("Error creating product:", error);
+      setError("An unexpected error occurred");
     } finally {
       setIsLoading(false);
     }
@@ -117,7 +188,16 @@ export default function NewProductPage() {
           </div>
         </div>
         <div className="flex gap-3">
-          <button className="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+          <button
+            type="button"
+            onClick={() => {
+              if (formData.slug) {
+                window.open(`/product/${formData.slug}`, '_blank');
+              }
+            }}
+            className="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+            disabled={!formData.slug}
+          >
             Preview
           </button>
           <button
@@ -131,12 +211,20 @@ export default function NewProductPage() {
         </div>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 text-red-600" />
+          <p className="text-red-700">{error}</p>
+        </div>
+      )}
+
       {/* Tabs */}
       <div className="border-b dark:border-gray-700">
-        <nav className="flex gap-6">
+        <nav className="flex gap-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab("general")}
-            className={`pb-3 px-1 font-medium transition-colors ${
+            className={`pb-3 px-1 font-medium transition-colors whitespace-nowrap ${
               activeTab === "general"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
@@ -147,7 +235,7 @@ export default function NewProductPage() {
           </button>
           <button
             onClick={() => setActiveTab("images")}
-            className={`pb-3 px-1 font-medium transition-colors ${
+            className={`pb-3 px-1 font-medium transition-colors whitespace-nowrap ${
               activeTab === "images"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
@@ -158,7 +246,7 @@ export default function NewProductPage() {
           </button>
           <button
             onClick={() => setActiveTab("variants")}
-            className={`pb-3 px-1 font-medium transition-colors ${
+            className={`pb-3 px-1 font-medium transition-colors whitespace-nowrap ${
               activeTab === "variants"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
@@ -169,7 +257,7 @@ export default function NewProductPage() {
           </button>
           <button
             onClick={() => setActiveTab("seo")}
-            className={`pb-3 px-1 font-medium transition-colors ${
+            className={`pb-3 px-1 font-medium transition-colors whitespace-nowrap ${
               activeTab === "seo"
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-400"
@@ -196,7 +284,7 @@ export default function NewProductPage() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   onBlur={generateSlug}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -208,7 +296,7 @@ export default function NewProductPage() {
                   required
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -220,7 +308,7 @@ export default function NewProductPage() {
                   required
                   value={formData.sku}
                   onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -231,8 +319,27 @@ export default function NewProductPage() {
                   type="text"
                   value={formData.barcode}
                   onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Category *
+                </label>
+                <select
+                  value={formData.categoryId}
+                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+                {isFetchingCategories && (
+                  <p className="text-xs text-gray-500 mt-1">Loading categories...</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -241,10 +348,11 @@ export default function NewProductPage() {
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   required
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -254,9 +362,10 @@ export default function NewProductPage() {
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   value={formData.comparePrice}
                   onChange={(e) => setFormData({ ...formData, comparePrice: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -266,9 +375,10 @@ export default function NewProductPage() {
                 <input
                   type="number"
                   required
+                  min="0"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -277,9 +387,10 @@ export default function NewProductPage() {
                 </label>
                 <input
                   type="number"
+                  min="0"
                   value={formData.lowStockThreshold}
                   onChange={(e) => setFormData({ ...formData, lowStockThreshold: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -289,9 +400,10 @@ export default function NewProductPage() {
                 <input
                   type="number"
                   step="0.01"
+                  min="0"
                   value={formData.weight}
                   onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -303,7 +415,7 @@ export default function NewProductPage() {
                   placeholder="electronics, new, sale"
                   value={formData.tags}
                   onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
@@ -313,7 +425,7 @@ export default function NewProductPage() {
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="ACTIVE">Active</option>
                   <option value="INACTIVE">Inactive</option>
@@ -327,7 +439,7 @@ export default function NewProductPage() {
                 <select
                   value={formData.visibility}
                   onChange={(e) => setFormData({ ...formData, visibility: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="PUBLISHED">Published</option>
                   <option value="DRAFT">Draft</option>
@@ -344,7 +456,7 @@ export default function NewProductPage() {
                 rows={2}
                 value={formData.shortDescription}
                 onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -357,7 +469,7 @@ export default function NewProductPage() {
                 required
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -367,7 +479,7 @@ export default function NewProductPage() {
                 id="featured"
                 checked={formData.featured}
                 onChange={(e) => setFormData({ ...formData, featured: e.target.checked })}
-                className="rounded"
+                className="rounded focus:ring-2 focus:ring-blue-500"
               />
               <label htmlFor="featured" className="text-sm text-gray-700 dark:text-gray-300">
                 Feature this product
@@ -387,7 +499,7 @@ export default function NewProductPage() {
               <p className="text-sm text-gray-500 mb-4">
                 Upload up to 10 images (JPEG, PNG, WebP)
               </p>
-              <label className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700">
+              <label className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-blue-700 transition-colors">
                 <Upload className="w-4 h-4" />
                 Select Images
                 <input
@@ -448,7 +560,7 @@ export default function NewProductPage() {
               </p>
               <button
                 type="button"
-                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Variant
@@ -469,7 +581,7 @@ export default function NewProductPage() {
                 value={formData.seoTitle}
                 onChange={(e) => setFormData({ ...formData, seoTitle: e.target.value })}
                 placeholder={formData.name}
-                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Recommended length: 50-60 characters
@@ -485,7 +597,7 @@ export default function NewProductPage() {
                 value={formData.seoDescription}
                 onChange={(e) => setFormData({ ...formData, seoDescription: e.target.value })}
                 placeholder={formData.shortDescription || formData.description}
-                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700"
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Recommended length: 150-160 characters

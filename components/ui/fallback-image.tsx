@@ -19,8 +19,8 @@ export function FallbackImage({
   src,
   alt,
   fill = false,
-  width,
-  height,
+  width = 100,
+  height = 100,
   className = "",
   sizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw",
   priority = false,
@@ -39,20 +39,24 @@ export function FallbackImage({
     );
   }
 
-  return (
-    <Image
-      src={imgSrc}
-      alt={alt}
-      fill={fill}
-      width={!fill ? width : undefined}
-      height={!fill ? height : undefined}
-      sizes={sizes}
-      priority={priority}
-      className={className}
-      onError={() => {
-        setHasError(true);
-        setImgSrc("/placeholder.jpg");
-      }}
-    />
-  );
+  // Create base props without optional fields
+  const baseProps = {
+    src: imgSrc,
+    alt: alt,
+    sizes: sizes,
+    priority: priority,
+    className: className,
+    onError: () => {
+      setHasError(true);
+      setImgSrc("/placeholder.jpg");
+    },
+  };
+
+  // If fill is true, use fill prop and omit width/height
+  if (fill) {
+    return <Image {...baseProps} fill />;
+  }
+
+  // Otherwise, include width and height
+  return <Image {...baseProps} width={width} height={height} />;
 }

@@ -1,7 +1,18 @@
 {
   "compilerOptions": {
-    // Strict Mode
+    "target": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "skipLibCheck": true,
     "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "incremental": true,
     "noUncheckedIndexedAccess": true,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
@@ -14,43 +25,11 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": true,
-    
-    // Language and Environment
-    "target": "ES2022",
-    "lib": [
-      "DOM",
-      "DOM.Iterable",
-      "ES2022"
-    ],
-    "jsx": "react-jsx",
-    
-    // Modules
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "allowJs": true,
-    "skipLibCheck": true,
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    
-    // Emit
-    "noEmit": true,
-    "incremental": true,
-    
-    // Interop Constraints
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
-    "ignoreDeprecations": "6.0",
-    
-    // Paths
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"],
-      "@prisma/client": ["node_modules/@prisma/client"]
+      "@/*": ["./*"]
     },
-    
-    // Plugins
     "plugins": [
       {
         "name": "next"
@@ -64,7 +43,5 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules", ".next"]
 }

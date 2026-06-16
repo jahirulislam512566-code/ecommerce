@@ -1,14 +1,27 @@
-"use client";
-
+// hooks/use-products.ts
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   getFilteredProducts, 
   getProductSuggestions, 
-  revalidateProducts, 
-  type ProductFiltersInput 
+  revalidateProducts,
 } from "@/lib/actions/product-actions";
 
-// Define the filters type for the query key
+export type SortOption = "newest" | "oldest" | "price_asc" | "price_desc" | "rating_desc" | "popularity_desc" | "name_asc" | "name_desc";
+
+export interface ProductFiltersInput {
+  page?: number;
+  limit?: number;
+  category?: string;
+  search?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  sort?: SortOption;
+  inStock?: boolean;
+  tags?: string[];
+  featured?: boolean;
+}
+
 export interface ProductFilters {
   page: number;
   limit: number;
@@ -17,10 +30,27 @@ export interface ProductFilters {
   minPrice?: number;
   maxPrice?: number;
   minRating?: number;
-  sort: string;
+  sort: SortOption;
   inStock?: boolean;
   tags?: string[];
   featured?: boolean;
+}
+
+// Helper function to clean filters
+function cleanProductFilters(filters: ProductFiltersInput): ProductFilters {
+  return {
+    page: filters.page || 1,
+    limit: filters.limit || 12,
+    sort: (filters.sort || "newest") as SortOption,
+    ...(filters.category && { category: filters.category }),
+    ...(filters.search && { search: filters.search }),
+    ...(filters.minPrice !== undefined && { minPrice: filters.minPrice }),
+    ...(filters.maxPrice !== undefined && { maxPrice: filters.maxPrice }),
+    ...(filters.minRating !== undefined && { minRating: filters.minRating }),
+    ...(filters.inStock !== undefined && { inStock: filters.inStock }),
+    ...(filters.tags && { tags: filters.tags }),
+    ...(filters.featured !== undefined && { featured: filters.featured }),
+  };
 }
 
 export const productKeys = {
@@ -33,11 +63,13 @@ export const productKeys = {
 };
 
 export function useProducts(filters: ProductFiltersInput) {
+  const cleanFilters = cleanProductFilters(filters);
+
   return useQuery({
-    queryKey: productKeys.list(filters),
-    queryFn: () => getFilteredProducts(filters),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    queryKey: productKeys.list(cleanFilters),
+    queryFn: () => getFilteredProducts(cleanFilters),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     retry: 1,
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
@@ -45,13 +77,14 @@ export function useProducts(filters: ProductFiltersInput) {
 }
 
 export function useInfiniteProducts(initialFilters: ProductFiltersInput) {
+  const baseFilters = cleanProductFilters(initialFilters);
+
   return useInfiniteQuery({
-    queryKey: productKeys.list(initialFilters),
+    queryKey: productKeys.list(baseFilters),
     queryFn: ({ pageParam = 1 }) =>
-      getFilteredProducts({ ...initialFilters, page: pageParam }),
+      getFilteredProducts({ ...baseFilters, page: pageParam }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => {
-      // Check if there's a next page
       if (lastPage?.pagination?.hasMore && lastPage?.pagination?.nextPage) {
         return lastPage.pagination.nextPage;
       }
@@ -68,8 +101,8 @@ export function useProductSuggestions(searchTerm: string) {
     queryKey: productKeys.suggestions(searchTerm),
     queryFn: () => getProductSuggestions(searchTerm),
     enabled: searchTerm.length >= 2,
-    staleTime: 30 * 1000, // 30 seconds
-    gcTime: 60 * 1000, // 1 minute
+    staleTime: 30 * 1000,
+    gcTime: 60 * 1000,
     retry: false,
   });
 }
@@ -82,7 +115,6 @@ export function useRevalidateProducts() {
       return await revalidateProducts();
     },
     onSuccess: () => {
-      // Invalidate all product queries
       queryClient.invalidateQueries({ queryKey: productKeys.lists() });
       queryClient.invalidateQueries({ queryKey: productKeys.all });
     },

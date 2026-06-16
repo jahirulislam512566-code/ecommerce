@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+// import { useSession } from "next-auth/react";
 import { 
-  Settings, 
   Store, 
   DollarSign, 
   Truck, 
@@ -12,7 +11,6 @@ import {
   Shield, 
   Globe, 
   Mail,
-  Smartphone,
   Save,
   RefreshCw,
   CheckCircle,
@@ -20,9 +18,8 @@ import {
   Eye,
   EyeOff,
   Loader2,
-  Share2, // Add this if using Share2
 } from "lucide-react";
-import Image from "next/image";
+
 
 // Types
 interface GeneralSettings {
@@ -100,7 +97,7 @@ interface SocialSettings {
 }
 
 export default function AdminSettings() {
-  const { data: session } = useSession();
+  // const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<"general" | "shipping" | "payment" | "notifications" | "security" | "seo" | "social">("general");
   const [isLoading, setIsLoading] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -241,16 +238,15 @@ export default function AdminSettings() {
     setShowKeys(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // In the tabs array, you can also use a simple div with emoji:
-const tabs = [
-  { id: "general", label: "General", icon: Store },
-  { id: "shipping", label: "Shipping", icon: Truck },
-  { id: "payment", label: "Payment", icon: CreditCard },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "seo", label: "SEO", icon: Globe },
-  { id: "social", label: "Social", icon: () => <span className="text-lg">🌐</span> },
-];
+  const tabs = [
+    { id: "general", label: "General", icon: Store },
+    { id: "shipping", label: "Shipping", icon: Truck },
+    { id: "payment", label: "Payment", icon: CreditCard },
+    { id: "notifications", label: "Notifications", icon: Bell },
+    { id: "security", label: "Security", icon: Shield },
+    { id: "seo", label: "SEO", icon: Globe },
+    { id: "social", label: "Social", icon: Mail },
+  ];
 
   if (isLoading && !generalSettings.storeName) {
     return (
@@ -1011,96 +1007,96 @@ const tabs = [
 
       {/* Social Media Settings */}
       {activeTab === "social" && (
-  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-    <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Social Media Links</h2>
-    
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          <span className="text-lg inline mr-2">📘</span>
-          Facebook
-        </label>
-        <input
-          type="url"
-          value={socialSettings.facebook}
-          onChange={(e) => setSocialSettings({ ...socialSettings, facebook: e.target.value })}
-          className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
-          placeholder="https://facebook.com/yourpage"
-        />
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          <span className="text-lg inline mr-2">🐦</span>
-          Twitter / X
-        </label>
-        <input
-          type="url"
-          value={socialSettings.twitter}
-          onChange={(e) => setSocialSettings({ ...socialSettings, twitter: e.target.value })}
-          className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
-          placeholder="https://twitter.com/yourhandle"
-        />
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          <span className="text-lg inline mr-2">📷</span>
-          Instagram
-        </label>
-        <input
-          type="url"
-          value={socialSettings.instagram}
-          onChange={(e) => setSocialSettings({ ...socialSettings, instagram: e.target.value })}
-          className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
-          placeholder="https://instagram.com/yourhandle"
-        />
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          <span className="text-lg inline mr-2">📺</span>
-          YouTube
-        </label>
-        <input
-          type="url"
-          value={socialSettings.youtube}
-          onChange={(e) => setSocialSettings({ ...socialSettings, youtube: e.target.value })}
-          className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
-          placeholder="https://youtube.com/c/yourchannel"
-        />
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          <span className="text-lg inline mr-2">🔗</span>
-          LinkedIn
-        </label>
-        <input
-          type="url"
-          value={socialSettings.linkedin}
-          onChange={(e) => setSocialSettings({ ...socialSettings, linkedin: e.target.value })}
-          className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
-          placeholder="https://linkedin.com/company/yourcompany"
-        />
-      </div>
-      
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-          <span className="text-lg inline mr-2">🐙</span>
-          GitHub
-        </label>
-        <input
-          type="url"
-          value={socialSettings.github}
-          onChange={(e) => setSocialSettings({ ...socialSettings, github: e.target.value })}
-          className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
-          placeholder="https://github.com/yourusername"
-        />
-      </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">Social Media Links</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="text-lg inline mr-2">📘</span>
+                Facebook
+              </label>
+              <input
+                type="url"
+                value={socialSettings.facebook}
+                onChange={(e) => setSocialSettings({ ...socialSettings, facebook: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
+                placeholder="https://facebook.com/yourpage"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="text-lg inline mr-2">🐦</span>
+                Twitter / X
+              </label>
+              <input
+                type="url"
+                value={socialSettings.twitter}
+                onChange={(e) => setSocialSettings({ ...socialSettings, twitter: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
+                placeholder="https://twitter.com/yourhandle"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="text-lg inline mr-2">📷</span>
+                Instagram
+              </label>
+              <input
+                type="url"
+                value={socialSettings.instagram}
+                onChange={(e) => setSocialSettings({ ...socialSettings, instagram: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
+                placeholder="https://instagram.com/yourhandle"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="text-lg inline mr-2">📺</span>
+                YouTube
+              </label>
+              <input
+                type="url"
+                value={socialSettings.youtube}
+                onChange={(e) => setSocialSettings({ ...socialSettings, youtube: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
+                placeholder="https://youtube.com/c/yourchannel"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="text-lg inline mr-2">🔗</span>
+                LinkedIn
+              </label>
+              <input
+                type="url"
+                value={socialSettings.linkedin}
+                onChange={(e) => setSocialSettings({ ...socialSettings, linkedin: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
+                placeholder="https://linkedin.com/company/yourcompany"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="text-lg inline mr-2">🐙</span>
+                GitHub
+              </label>
+              <input
+                type="url"
+                value={socialSettings.github}
+                onChange={(e) => setSocialSettings({ ...socialSettings, github: e.target.value })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-900 dark:border-gray-700 focus:ring-2 focus:ring-blue-500"
+                placeholder="https://github.com/yourusername"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  </div>
-)}
-      </div>
   );
 }

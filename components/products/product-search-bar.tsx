@@ -6,7 +6,6 @@ import { useProductSuggestions } from "@/hooks/use-products"
 import { Search, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 
 interface ProductSearchBarProps {
   onSearch: (search: string) => void
@@ -14,7 +13,7 @@ interface ProductSearchBarProps {
 }
 
 export function ProductSearchBar({ onSearch, initialValue = "" }: ProductSearchBarProps) {
-  const router = useRouter()
+  // Remove router since it's not being used
   const [query, setQuery] = useState(initialValue)
   const [isOpen, setIsOpen] = useState(false)
   const debouncedQuery = useDebounce(query, 300)
@@ -68,6 +67,7 @@ export function ProductSearchBar({ onSearch, initialValue = "" }: ProductSearchB
             type="button"
             onClick={handleClear}
             className="absolute right-4 top-1/2 transform -translate-y-1/2"
+            aria-label="Clear search"
           >
             <X className="w-5 h-5 text-gray-400 hover:text-gray-600" />
           </button>
@@ -89,8 +89,8 @@ export function ProductSearchBar({ onSearch, initialValue = "" }: ProductSearchB
                   onClick={() => setIsOpen(false)}
                   className="flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors"
                 >
-                  {product.images[0] && (
-                    <div className="relative w-10 h-10 rounded overflow-hidden">
+                  {product.images && product.images[0] && (
+                    <div className="relative w-10 h-10 rounded overflow-hidden flex-shrink-0">
                       <Image
                         src={product.images[0].url}
                         alt={product.name}
@@ -99,9 +99,9 @@ export function ProductSearchBar({ onSearch, initialValue = "" }: ProductSearchB
                       />
                     </div>
                   )}
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                    <p className="text-sm text-blue-600">${product.price.toFixed(2)}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
+                    <p className="text-sm text-blue-600">${product.price?.toFixed(2) || '0.00'}</p>
                   </div>
                 </Link>
               ))}

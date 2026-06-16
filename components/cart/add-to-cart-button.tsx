@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { useCartStore } from "@/stores/cartStore"
 import { ShoppingCart, Check } from "lucide-react"
+import type { AddCartItemInput } from "@/types/cart"
 
 interface AddToCartButtonProps {
   productId: string
@@ -38,18 +39,29 @@ export function AddToCartButton({
   const isLoading = useCartStore((state) => state.isLoading)
 
   const handleAddToCart = async () => {
-    await addItem({
+    // Build the cart item with proper typing - only include variant fields if they have values
+    const cartItem: AddCartItemInput = {
       productId,
       name: productName,
       slug: productSlug,
       price,
       image,
-      variantId,
-      variantName,
-      variantAttributes,
       quantity,
       maxStock,
-    })
+    }
+
+    // Only add variant fields if they exist and are not undefined
+    if (variantId) {
+      cartItem.variantId = variantId
+    }
+    if (variantName) {
+      cartItem.variantName = variantName
+    }
+    if (variantAttributes) {
+      cartItem.variantAttributes = variantAttributes
+    }
+
+    await addItem(cartItem)
 
     // Show success animation
     setIsAdded(true)

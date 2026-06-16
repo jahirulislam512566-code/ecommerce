@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle, Package, Printer, AlertCircle, ArrowLeft, ShoppingBag, MapPin, CreditCard } from "lucide-react";
@@ -40,7 +40,11 @@ interface Order {
 export default function OrderSuccessPage() {
   const params = useParams();
   const router = useRouter();
-  const { clearCart, getTotalItems, initialize } = useCartStore();
+  
+  // Fixed: Removed unused 'getTotalItems' and 'initialize' destructuring parameters
+  const { clearCart } = useCartStore();
+  
+  // Safe extraction of path parameters matching folder structure [orderId]
   const orderId = params?.orderId as string;
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -48,39 +52,11 @@ export default function OrderSuccessPage() {
   const [error, setError] = useState<string | null>(null);
   const [cartCleared, setCartCleared] = useState(false);
 
-  useEffect(() => {
-    if (!orderId) {
-      router.push("/");
-      return;
-    }
-    
-    // Clear cart when order is successful
-    const clearUserCart = async () => {
-      if (!cartCleared) {
-        console.log("Clearing cart after successful order...");
-        try {
-          await clearCart();
-          // Also clear localStorage
-          localStorage.removeItem("cart-storage");
-          // Dispatch event for header to update
-          window.dispatchEvent(new Event("cart-updated"));
-          window.dispatchEvent(new Event("storage"));
-          console.log("Cart cleared successfully");
-          setCartCleared(true);
-        } catch (error) {
-          console.error("Error clearing cart:", error);
-        }
-      }
-    };
-    
-    clearUserCart();
-    fetchOrderDetails();
-  }, [orderId, router, clearCart, cartCleared]);
-
-  const fetchOrderDetails = async () => {
+  // Fixed: Wrapped API caller in a useCallback memo instance to prevent infinite render re-evaluations
+  const fetchOrderDetails = useCallback(async (id: string) => {
     try {
       // First, try to get order from localStorage (for COD orders)
-      const savedOrder = localStorage.getItem(`order_${orderId}`);
+      const savedOrder = localStorage.getItem(`order_${id}`);
       if (savedOrder) {
         setOrder(JSON.parse(savedOrder));
         setIsLoading(false);
@@ -88,13 +64,13 @@ export default function OrderSuccessPage() {
       }
 
       // If not in localStorage, try to fetch from API
-      const response = await fetch(`/api/orders/${orderId}`);
+      const response = await fetch(`/api/orders/${id}`);
       
       if (!response.ok) {
         // If API fails, create a mock order for display
         const mockOrder: Order = {
-          id: orderId,
-          orderNumber: `ORD-${orderId.substring(0, 8).toUpperCase()}`,
+          id,
+          orderNumber: `ORD-${id.substring(0, 8).toUpperCase()}`,
           status: "PROCESSING",
           paymentStatus: "PAID",
           paymentMethod: "Cash on Delivery",
@@ -125,8 +101,8 @@ export default function OrderSuccessPage() {
       console.error("Error fetching order:", err);
       // Create a basic order so page still displays
       const basicOrder: Order = {
-        id: orderId,
-        orderNumber: `ORD-${orderId.substring(0, 8).toUpperCase()}`,
+        id,
+        orderNumber: `ORD-${id.substring(0, 8).toUpperCase()}`,
         status: "PROCESSING",
         paymentStatus: "PENDING",
         paymentMethod: "Pending",
@@ -150,7 +126,37 @@ export default function OrderSuccessPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!orderId) {
+      router.push("/");
+      return;
+    }
+    
+    // Clear cart state logic
+    const clearUserCart = async () => {
+      if (!cartCleared) {
+        console.log("Clearing cart after successful order...");
+        try {
+          await clearCart();
+          localStorage.removeItem("cart-storage");
+          
+          // Alert global DOM listeners
+          window.dispatchEvent(new Event("cart-updated"));
+          window.dispatchEvent(new Event("storage"));
+          
+          console.log("Cart cleared successfully");
+          setCartCleared(true);
+        } catch (err) {
+          console.error("Error clearing cart:", err);
+        }
+      }
+    };
+    
+    clearUserCart();
+    fetchOrderDetails(orderId);
+  }, [orderId, router, clearCart, cartCleared, fetchOrderDetails]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -324,7 +330,6 @@ export default function OrderSuccessPage() {
               </div>
             </div>
 
-            {/* Note about error */}
             {error && (
               <div className="mb-6 p-4 bg-yellow-50 rounded-lg">
                 <p className="text-sm text-yellow-800">{error}</p>

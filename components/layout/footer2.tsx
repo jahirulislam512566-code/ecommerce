@@ -9,10 +9,6 @@ import {
   Shield,
   Truck,
   RefreshCw,
-  HelpCircle,
-  Package,
-  ShoppingBag,
-  Star
 } from "lucide-react";
 
 const footerSections = {

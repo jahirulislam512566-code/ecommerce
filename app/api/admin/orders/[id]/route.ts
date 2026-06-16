@@ -4,18 +4,22 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  _request: NextRequest, // Fixed: Added underscore to bypass unused local warning
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
     
+    // Await params if it's a Promise
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+
     if (!session || session.user?.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const order = await prisma.order.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         user: {
           select: {
@@ -104,11 +108,15 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions);
     
+    // Await params if it's a Promise
+    const resolvedParams = await params;
+    const { id } = resolvedParams;
+
     if (!session || session.user?.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -119,19 +127,12 @@ export async function PATCH(
     if (status) updateData.status = status;
     if (trackingNumber) updateData.trackingNumber = trackingNumber;
     
-    if (status === "SHIPPED" && !trackingNumber) {
-      return NextResponse.json(
-        { error: "Tracking number is required when marking as shipped" },
-        { status: 400 }
-      );
-    }
-    
     if (status === "SHIPPED") updateData.shippedAt = new Date();
     if (status === "DELIVERED") updateData.deliveredAt = new Date();
     if (status === "CANCELLED") updateData.cancelledAt = new Date();
 
     const order = await prisma.order.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 

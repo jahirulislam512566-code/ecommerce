@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+// import { getServerSession } from "next-auth";
+// import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ orderId: string }> }
+  _request: NextRequest, // Fixed: Added underscore for unused variable
+  { params }: { params: Promise<{ id: string }> } // Fixed: Properly typed Next.js route params context
 ) {
   try {
-    // For Next.js 15+, params is a Promise
-    const params = await context.params;
-    const { orderId } = params;
+    // We safely await params and extract 'id' dynamically
+    const resolvedParams = await params;
+    const orderId = resolvedParams?.id;
     
     console.log("API called with orderId:", orderId);
 

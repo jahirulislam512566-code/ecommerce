@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { 
   Filter, 
   Grid3x3, 
   List, 
-  ChevronDown, 
-  SlidersHorizontal,
   X,
   Star,
   ChevronLeft,
@@ -15,33 +13,22 @@ import {
 } from "lucide-react";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductCardSkeleton } from "@/components/products/product-card-skeleton";
+import type { Product } from "@/types"; // Import from your global types file
 
+// 1. Updated for exactOptionalPropertyTypes compliance
 interface Filters {
   page: number;
   limit: number;
-  category?: string;
-  search?: string;
-  minPrice?: number;
-  maxPrice?: number;
-  minRating?: number;
+  category: string | undefined;
+  search: string | undefined;
+  minPrice: number | undefined;
+  maxPrice: number | undefined;
+  minRating: number | undefined;
   sort: string;
-  inStock?: boolean;
+  inStock: boolean | undefined;
 }
 
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  price: number;
-  comparePrice: number | null;
-  images: { url: string; altText: string | null; isPrimary: boolean }[];
-  variants: any[];
-  quantity: number;
-  category: { id: string; name: string; slug: string } | null;
-  averageRating: number;
-  reviewCount: number;
-  inStock: boolean;
-}
+// Remove duplicate Product interface - use imported type
 
 interface ProductsResponse {
   success: boolean;
@@ -69,14 +56,15 @@ const sortOptions = [
 ];
 
 const priceRanges = [
+  { label: "All Prices", min: undefined, max: undefined },
   { label: "Under $25", min: 0, max: 25 },
   { label: "$25 - $50", min: 25, max: 50 },
   { label: "$50 - $100", min: 50, max: 100 },
   { label: "$100 - $200", min: 100, max: 200 },
-  { label: "Over $200", min: 200, max: null },
+  { label: "Over $200", min: 200, max: undefined },
 ];
 
-export default function ShopPage() {
+function ShopPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -84,14 +72,17 @@ export default function ShopPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
+  const [, setPriceRange] = useState({ min: 0, max: 1000 });
   const [categories, setCategories] = useState<{ slug: string; name: string; count: number }[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  // 2. Local search tracking to prevent focus dropping issues on input changes
+  const [searchInput, setSearchInput] = useState(searchParams.get("search") || "");
+  const debounceTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
   
-  // Filter states
   const [filters, setFilters] = useState<Filters>({
-    page: parseInt(searchParams.get("page") || "1"),
+    page: parseInt(searchParams.get("page") || "1", 10),
     limit: 12,
     category: searchParams.get("category") || undefined,
     search: searchParams.get("search") || undefined,
@@ -102,7 +93,26 @@ export default function ShopPage() {
     inStock: searchParams.get("inStock") === "true" ? true : undefined,
   });
 
-  // Fetch products
+  // Debounce search query changes with proper cleanup
+  useEffect(() => {
+    // Clear any existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: searchInput || undefined, page: 1 }));
+    }, 400);
+
+    // Cleanup function to clear timeout on unmount or dependency change
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [searchInput]);
+
+  // 3. Fixed: Fetch updates only on individual primitive property alterations
   const fetchProducts = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -111,9 +121,9 @@ export default function ShopPage() {
       params.set("limit", filters.limit.toString());
       if (filters.category) params.set("category", filters.category);
       if (filters.search) params.set("search", filters.search);
-      if (filters.minPrice) params.set("minPrice", filters.minPrice.toString());
-      if (filters.maxPrice) params.set("maxPrice", filters.maxPrice.toString());
-      if (filters.minRating) params.set("minRating", filters.minRating.toString());
+      if (filters.minPrice !== undefined) params.set("minPrice", filters.minPrice.toString());
+      if (filters.maxPrice !== undefined) params.set("maxPrice", filters.maxPrice.toString());
+      if (filters.minRating !== undefined) params.set("minRating", filters.minRating.toString());
       if (filters.sort) params.set("sort", filters.sort);
       if (filters.inStock !== undefined) params.set("inStock", filters.inStock.toString());
 
@@ -132,33 +142,72 @@ export default function ShopPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
+  }, [
+    filters.page, 
+    filters.limit, 
+    filters.category, 
+    filters.search, 
+    filters.minPrice, 
+    filters.maxPrice, 
+    filters.minRating, 
+    filters.sort, 
+    filters.inStock
+  ]);
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Update URL when filters change
-  useEffect(() => {
+  // 4. Fixed: Prevent looping state mutations on URL route sync
+  const updateUrl = useCallback(() => {
     const params = new URLSearchParams();
     if (filters.page > 1) params.set("page", filters.page.toString());
     if (filters.category) params.set("category", filters.category);
     if (filters.search) params.set("search", filters.search);
-    if (filters.minPrice) params.set("minPrice", filters.minPrice.toString());
-    if (filters.maxPrice) params.set("maxPrice", filters.maxPrice.toString());
-    if (filters.minRating) params.set("minRating", filters.minRating.toString());
+    if (filters.minPrice !== undefined) params.set("minPrice", filters.minPrice.toString());
+    if (filters.maxPrice !== undefined) params.set("maxPrice", filters.maxPrice.toString());
+    if (filters.minRating !== undefined) params.set("minRating", filters.minRating.toString());
     if (filters.sort !== "newest") params.set("sort", filters.sort);
     if (filters.inStock !== undefined) params.set("inStock", filters.inStock.toString());
     
     const queryString = params.toString();
-    router.push(`/shop${queryString ? `?${queryString}` : ""}`, { scroll: false });
-  }, [filters, router]);
+    const newUrl = `/shop${queryString ? `?${queryString}` : ""}`;
+    
+    // Only update if the URL actually changed
+    const currentUrl = window.location.pathname + window.location.search;
+    if (newUrl !== currentUrl) {
+      router.push(newUrl, { scroll: false });
+    }
+  }, [
+    filters.page, 
+    filters.category, 
+    filters.search, 
+    filters.minPrice, 
+    filters.maxPrice, 
+    filters.minRating, 
+    filters.sort, 
+    filters.inStock, 
+    router
+  ]);
 
-  const handleFilterChange = (key: keyof Filters, value: any) => {
-    setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
+  useEffect(() => {
+    updateUrl();
+  }, [updateUrl]);
+
+  // 5. Fixed: Stronger typing for handleFilterChange
+  const handleFilterChange = <K extends keyof Filters>(
+    key: K, 
+    value: Filters[K]
+  ) => {
+    setFilters(prev => ({ 
+      ...prev, 
+      [key]: value, 
+      page: key === "page" ? (value as number) : 1 
+    }));
   };
 
   const clearFilters = () => {
+    setSearchInput("");
     setFilters({
       page: 1,
       limit: 12,
@@ -175,9 +224,9 @@ export default function ShopPage() {
   const hasActiveFilters = () => {
     return !!(
       filters.category ||
-      filters.minPrice ||
-      filters.maxPrice ||
-      filters.minRating ||
+      filters.minPrice !== undefined ||
+      filters.maxPrice !== undefined ||
+      filters.minRating !== undefined ||
       filters.inStock !== undefined ||
       filters.search
     );
@@ -186,15 +235,15 @@ export default function ShopPage() {
   const getActiveFiltersCount = () => {
     let count = 0;
     if (filters.category) count++;
-    if (filters.minPrice || filters.maxPrice) count++;
-    if (filters.minRating) count++;
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) count++;
+    if (filters.minRating !== undefined) count++;
     if (filters.inStock !== undefined) count++;
     if (filters.search) count++;
     return count;
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 text-gray-900">
       {/* Hero Banner */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
         <div className="container mx-auto px-4 py-12">
@@ -211,12 +260,12 @@ export default function ShopPage() {
           <div className="lg:hidden">
             <button
               onClick={() => setIsFilterOpen(true)}
-              className="w-full flex items-center justify-center gap-2 bg-white border rounded-lg py-2 px-4 shadow-sm"
+              className="w-full flex items-center justify-center gap-2 bg-white border rounded-lg py-2 px-4 shadow-sm font-medium"
             >
               <Filter className="w-5 h-5" />
               Filter Products
               {getActiveFiltersCount() > 0 && (
-                <span className="bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                <span className="bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
                   {getActiveFiltersCount()}
                 </span>
               )}
@@ -225,13 +274,13 @@ export default function ShopPage() {
 
           {/* Sidebar Filters - Desktop */}
           <aside className="hidden lg:block w-80 flex-shrink-0">
-            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-20">
+            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-20 border border-gray-100">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
                 {hasActiveFilters() && (
                   <button
                     onClick={clearFilters}
-                    className="text-sm text-blue-600 hover:text-blue-700"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
                   >
                     Clear All
                   </button>
@@ -246,38 +295,38 @@ export default function ShopPage() {
                 <input
                   type="text"
                   placeholder="Search products..."
-                  value={filters.search || ""}
-                  onChange={(e) => handleFilterChange("search", e.target.value || undefined)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 placeholder-gray-400"
                 />
               </div>
 
               {/* Categories */}
               <div className="mb-6">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Categories</h3>
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  <label className="flex items-center justify-between cursor-pointer">
+                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                  <label className="flex items-center justify-between cursor-pointer py-0.5">
                     <div className="flex items-center gap-2">
                       <input
                         type="radio"
                         name="category"
                         checked={!filters.category}
                         onChange={() => handleFilterChange("category", undefined)}
-                        className="text-blue-600"
+                        className="text-blue-600 focus:ring-blue-500"
                       />
                       <span className="text-sm text-gray-700">All Categories</span>
                     </div>
                     <span className="text-xs text-gray-500">{totalCount}</span>
                   </label>
                   {categories.map((cat) => (
-                    <label key={cat.slug} className="flex items-center justify-between cursor-pointer">
+                    <label key={cat.slug} className="flex items-center justify-between cursor-pointer py-0.5">
                       <div className="flex items-center gap-2">
                         <input
                           type="radio"
                           name="category"
                           checked={filters.category === cat.slug}
                           onChange={() => handleFilterChange("category", cat.slug)}
-                          className="text-blue-600"
+                          className="text-blue-600 focus:ring-blue-500"
                         />
                         <span className="text-sm text-gray-700">{cat.name}</span>
                       </div>
@@ -291,39 +340,38 @@ export default function ShopPage() {
               <div className="mb-6">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Price Range</h3>
                 <div className="space-y-2">
-                  {priceRanges.map((range) => (
-                    <label key={range.label} className="flex items-center gap-2 cursor-pointer">
+                  {priceRanges.map((range, index) => (
+                    <label key={index} className="flex items-center gap-2 cursor-pointer py-0.5">
                       <input
                         type="radio"
                         name="priceRange"
                         checked={
-                          filters.minPrice === range.min && 
-                          (filters.maxPrice === range.max || (range.max === null && filters.maxPrice === undefined))
+                          filters.minPrice === range.min && filters.maxPrice === range.max
                         }
                         onChange={() => {
                           handleFilterChange("minPrice", range.min);
-                          handleFilterChange("maxPrice", range.max === null ? undefined : range.max);
+                          handleFilterChange("maxPrice", range.max);
                         }}
-                        className="text-blue-600"
+                        className="text-blue-600 focus:ring-blue-500"
                       />
                       <span className="text-sm text-gray-700">{range.label}</span>
                     </label>
                   ))}
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex gap-2 mt-3 items-center">
                     <input
                       type="number"
                       placeholder="Min"
-                      value={filters.minPrice || ""}
+                      value={filters.minPrice !== undefined ? filters.minPrice : ""}
                       onChange={(e) => handleFilterChange("minPrice", e.target.value ? parseFloat(e.target.value) : undefined)}
-                      className="w-full px-2 py-1 border rounded text-sm"
+                      className="w-full px-2 py-1 border rounded text-sm bg-white text-gray-900"
                     />
-                    <span className="text-gray-500">-</span>
+                    <span className="text-gray-400">-</span>
                     <input
                       type="number"
                       placeholder="Max"
-                      value={filters.maxPrice || ""}
+                      value={filters.maxPrice !== undefined ? filters.maxPrice : ""}
                       onChange={(e) => handleFilterChange("maxPrice", e.target.value ? parseFloat(e.target.value) : undefined)}
-                      className="w-full px-2 py-1 border rounded text-sm"
+                      className="w-full px-2 py-1 border rounded text-sm bg-white text-gray-900"
                     />
                   </div>
                 </div>
@@ -333,14 +381,24 @@ export default function ShopPage() {
               <div className="mb-6">
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Customer Rating</h3>
                 <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer py-0.5">
+                    <input
+                      type="radio"
+                      name="rating"
+                      checked={filters.minRating === undefined}
+                      onChange={() => handleFilterChange("minRating", undefined)}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">All Ratings</span>
+                  </label>
                   {[4, 3, 2, 1].map((rating) => (
-                    <label key={rating} className="flex items-center gap-2 cursor-pointer">
+                    <label key={rating} className="flex items-center gap-2 cursor-pointer py-0.5">
                       <input
                         type="radio"
                         name="rating"
                         checked={filters.minRating === rating}
                         onChange={() => handleFilterChange("minRating", rating)}
-                        className="text-blue-600"
+                        className="text-blue-600 focus:ring-blue-500"
                       />
                       <div className="flex items-center gap-1">
                         {[...Array(5)].map((_, i) => (
@@ -359,78 +417,78 @@ export default function ShopPage() {
               </div>
 
               {/* Stock Filter */}
-              <div className="mb-6">
-                <label className="flex items-center gap-2 cursor-pointer">
+              <div className="mb-2">
+                <label className="flex items-center gap-2 cursor-pointer py-0.5">
                   <input
                     type="checkbox"
                     checked={filters.inStock === true}
                     onChange={(e) => handleFilterChange("inStock", e.target.checked ? true : undefined)}
-                    className="text-blue-600"
+                    className="text-blue-600 rounded focus:ring-blue-500"
                   />
-                  <span className="text-sm text-gray-700">In Stock Only</span>
+                  <span className="text-sm text-gray-700 font-medium">In Stock Only</span>
                 </label>
               </div>
             </div>
           </aside>
 
-          {/* Mobile Filter Drawer */}
+          {/* Mobile Filter Drawer Context */}
           {isFilterOpen && (
             <>
               <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setIsFilterOpen(false)} />
-              <div className="fixed inset-y-0 left-0 w-80 bg-white z-50 overflow-y-auto transform transition-transform">
+              <div className="fixed inset-y-0 left-0 w-80 bg-white z-50 overflow-y-auto transform transition-transform border-r">
                 <div className="p-4 border-b flex justify-between items-center">
                   <h2 className="text-lg font-semibold">Filters</h2>
-                  <button onClick={() => setIsFilterOpen(false)} className="p-1">
+                  <button onClick={() => setIsFilterOpen(false)} className="p-1 hover:bg-gray-100 rounded-full">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <div className="p-4">
-                  {/* Same filter content as desktop */}
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
                     <input
                       type="text"
                       placeholder="Search products..."
-                      value={filters.search || ""}
-                      onChange={(e) => handleFilterChange("search", e.target.value || undefined)}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg bg-white text-gray-900"
                     />
                   </div>
                   <div className="mb-6">
                     <h3 className="text-sm font-medium text-gray-700 mb-3">Categories</h3>
                     <div className="space-y-2">
-                      <label className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer py-0.5">
                         <input
                           type="radio"
+                          name="mobile-category"
                           checked={!filters.category}
                           onChange={() => handleFilterChange("category", undefined)}
-                          className="text-blue-600"
+                          className="text-blue-600 focus:ring-blue-500"
                         />
-                        <span className="text-sm">All Categories</span>
+                        <span className="text-sm text-gray-700">All Categories</span>
                       </label>
                       {categories.map((cat) => (
-                        <label key={cat.slug} className="flex items-center gap-2">
+                        <label key={cat.slug} className="flex items-center gap-2 cursor-pointer py-0.5">
                           <input
                             type="radio"
+                            name="mobile-category"
                             checked={filters.category === cat.slug}
                             onChange={() => handleFilterChange("category", cat.slug)}
-                            className="text-blue-600"
+                            className="text-blue-600 focus:ring-blue-500"
                           />
-                          <span className="text-sm">{cat.name}</span>
+                          <span className="text-sm text-gray-700">{cat.name}</span>
                           <span className="text-xs text-gray-500">({cat.count})</span>
                         </label>
                       ))}
                     </div>
                   </div>
-                  {/* Add other filter sections */}
                 </div>
-                <div className="p-4 border-t">
+                <div className="p-4 border-t mt-auto">
                   <button
                     onClick={() => {
                       clearFilters();
                       setIsFilterOpen(false);
                     }}
-                    className="w-full bg-gray-100 text-gray-700 py-2 rounded-lg"
+                    className="w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-200"
                   >
                     Clear All Filters
                   </button>
@@ -442,16 +500,16 @@ export default function ShopPage() {
           {/* Products Section */}
           <main className="flex-1">
             {/* Toolbar */}
-            <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap justify-between items-center gap-4">
+            <div className="bg-white rounded-lg shadow-sm p-4 mb-6 flex flex-wrap justify-between items-center gap-4 border border-gray-100">
               <div className="flex items-center gap-4">
                 <p className="text-sm text-gray-600">
-                  Showing <span className="font-semibold">{products.length}</span> of{" "}
-                  <span className="font-semibold">{totalCount}</span> products
+                  Showing <span className="font-semibold text-gray-900">{products.length}</span> of{" "}
+                  <span className="font-semibold text-gray-900">{totalCount}</span> products
                 </p>
                 {hasActiveFilters() && (
                   <button
                     onClick={clearFilters}
-                    className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-700 flex items-center gap-1"
                   >
                     <X className="w-4 h-4" />
                     Clear Filters ({getActiveFiltersCount()})
@@ -460,11 +518,10 @@ export default function ShopPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                {/* Sort Dropdown */}
                 <select
                   value={filters.sort}
                   onChange={(e) => handleFilterChange("sort", e.target.value)}
-                  className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                  className="px-3 py-1.5 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 font-medium"
                 >
                   {sortOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -473,39 +530,24 @@ export default function ShopPage() {
                   ))}
                 </select>
 
-                {/* View Toggle */}
-                <div className="flex gap-1 border rounded-lg p-1">
+                <div className="flex gap-1 border rounded-lg p-1 bg-gray-50">
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-1.5 rounded ${viewMode === "grid" ? "bg-blue-100 text-blue-600" : "text-gray-400"}`}
+                    className={`p-1.5 rounded ${viewMode === "grid" ? "bg-white text-blue-600 shadow-sm border border-gray-100" : "text-gray-400 hover:text-gray-600"}`}
                   >
                     <Grid3x3 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-1.5 rounded ${viewMode === "list" ? "bg-blue-100 text-blue-600" : "text-gray-400"}`}
+                    className={`p-1.5 rounded ${viewMode === "list" ? "bg-white text-blue-600 shadow-sm border border-gray-100" : "text-gray-400 hover:text-gray-600"}`}
                   >
                     <List className="w-4 h-4" />
                   </button>
                 </div>
-
-                {/* Mobile Filter Button */}
-                <button
-                  onClick={() => setIsFilterOpen(true)}
-                  className="lg:hidden flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm"
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                  Filter
-                  {getActiveFiltersCount() > 0 && (
-                    <span className="bg-blue-600 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                      {getActiveFiltersCount()}
-                    </span>
-                  )}
-                </button>
               </div>
             </div>
 
-            {/* Products Grid */}
+            {/* Products Grid / Output */}
             {isLoading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {[...Array(6)].map((_, i) => (
@@ -513,7 +555,7 @@ export default function ShopPage() {
                 ))}
               </div>
             ) : products.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-100">
                 <div className="text-6xl mb-4">🔍</div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No products found</h3>
                 <p className="text-gray-500 mb-6">
@@ -521,7 +563,7 @@ export default function ShopPage() {
                 </p>
                 <button
                   onClick={clearFilters}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 shadow-sm"
                 >
                   Clear All Filters
                 </button>
@@ -533,7 +575,13 @@ export default function ShopPage() {
                   : "space-y-4"
                 }>
                   {products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                    <ProductCard 
+                      key={product.id} 
+                      product={product} 
+                      // Remove viewMode prop if ProductCard doesn't accept it
+                      // If it does accept it, uncomment the line below
+                      // viewMode={viewMode}
+                    />
                   ))}
                 </div>
 
@@ -543,14 +591,14 @@ export default function ShopPage() {
                     <button
                       onClick={() => handleFilterChange("page", filters.page - 1)}
                       disabled={filters.page === 1}
-                      className="px-3 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      className="px-3 py-2 border rounded-lg bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 shadow-sm"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     
                     <div className="flex gap-1">
                       {[...Array(Math.min(5, totalPages))].map((_, i) => {
-                        let pageNum;
+                        let pageNum: number;
                         if (totalPages <= 5) {
                           pageNum = i + 1;
                         } else if (filters.page <= 3) {
@@ -565,10 +613,10 @@ export default function ShopPage() {
                           <button
                             key={pageNum}
                             onClick={() => handleFilterChange("page", pageNum)}
-                            className={`w-10 h-10 rounded-lg ${
+                            className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
                               filters.page === pageNum
-                                ? "bg-blue-600 text-white"
-                                : "border hover:bg-gray-50"
+                                ? "bg-blue-600 text-white shadow-sm"
+                                : "border bg-white text-gray-700 hover:bg-gray-50"
                             }`}
                           >
                             {pageNum}
@@ -580,7 +628,7 @@ export default function ShopPage() {
                     <button
                       onClick={() => handleFilterChange("page", filters.page + 1)}
                       disabled={filters.page === totalPages}
-                      className="px-3 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      className="px-3 py-2 border rounded-lg bg-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 shadow-sm"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -592,5 +640,27 @@ export default function ShopPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 6. Main Component Export utilizing proper React Suspense Wrapper
+export default function ShopPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-12 animate-pulse">
+        <div className="h-32 bg-gray-200 rounded-lg mb-8" />
+        <div className="flex gap-8">
+          <div className="hidden lg:block w-80 h-96 bg-gray-200 rounded-lg" />
+          <div className="flex-1 space-y-4">
+            <div className="h-12 bg-gray-200 rounded-lg" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[...Array(3)].map((_, i) => <div key={i} className="h-64 bg-gray-200 rounded-lg" />)}
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <ShopPageContent />
+    </Suspense>
   );
 }

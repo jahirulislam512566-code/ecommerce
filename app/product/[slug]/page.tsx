@@ -2,12 +2,11 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import { ProductDetailClient } from "@/components/products/product-detail-client";
-import { RecommendedProducts } from "@/components/products/recommended-products";
-import { ReviewsSection } from "@/components/reviews/reviews-section";
 import { SEO } from "@/components/seo/seo";
 
+// 1. Fixed: Explicit Next.js 15 strict Promise typing pattern for Page Props
 interface ProductPageProps {
-  params: Promise<{ slug: string }> | { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 // Helper function to safely convert Decimal to number
@@ -19,8 +18,7 @@ function toNumber(value: any): number {
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {
-  const resolvedParams = await params;
-  const { slug } = resolvedParams;
+  const { slug } = await params;
   
   if (!slug) {
     return {
@@ -44,7 +42,6 @@ export async function generateMetadata({ params }: ProductPageProps) {
   }
 
   const primaryImage = product.images.find(img => img.isPrimary) || product.images[0];
-  const price = toNumber(product.price);
   
   return {
     title: `${product.name} | E-Store`,
@@ -52,15 +49,13 @@ export async function generateMetadata({ params }: ProductPageProps) {
     openGraph: {
       title: product.name,
       description: product.shortDescription || product.description?.slice(0, 160),
-      images: primaryImage?.url,
-      // Remove type: "product" - it's invalid
+      images: primaryImage ? [{ url: primaryImage.url }] : [],
     },
   };
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const resolvedParams = await params;
-  const { slug } = resolvedParams;
+  const { slug } = await params;
   
   if (!slug) {
     notFound();
@@ -144,7 +139,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       ? product.reviews.reduce((sum, r) => sum + r.rating, 0) / product.reviews.length
       : 0,
     reviewCount: product.reviews.length,
-    vendor: product.vendor,
+   vendor: product.vendorId,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
     inStock: product.quantity > 0 || product.variants.some(v => v.quantity > 0),
@@ -159,28 +154,38 @@ export default async function ProductPage({ params }: ProductPageProps) {
       visibility: "PUBLISHED",
     },
     include: {
-      images: { where: { isPrimary: true }, take: 1 },
+      images: { orderBy: { order: "asc" } },
     },
     take: 4,
   });
 
+  // 2. Fixed: Normalizing structural output alignment properties matching cross-component specifications
   const transformedRelatedProducts = relatedProducts.map(p => ({
     id: p.id,
     name: p.name,
     slug: p.slug,
+    description: p.description,
+    shortDescription: p.shortDescription,
     price: toNumber(p.price),
     comparePrice: p.comparePrice ? toNumber(p.comparePrice) : null,
-    images: p.images,
+    images: p.images.map(img => ({
+      id: img.id,
+      url: img.url,
+      altText: img.altText,
+      isPrimary: img.isPrimary,
+      order: img.order,
+    })),
     quantity: p.quantity,
     inStock: p.quantity > 0,
   }));
 
-  const productJsonLd = {
+  // 3. Fixed: Safe generation structure for Search Engines avoiding invalid 0-review schema injection marks
+  const productJsonLd: Record<string, any> = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: transformedProduct.name,
-    description: transformedProduct.description,
-    sku: transformedProduct.sku,
+    description: transformedProduct.shortDescription || transformedProduct.description,
+    sku: transformedProduct.sku || undefined,
     offers: {
       "@type": "Offer",
       price: transformedProduct.price,
@@ -189,32 +194,35 @@ export default async function ProductPage({ params }: ProductPageProps) {
         ? "https://schema.org/InStock" 
         : "https://schema.org/OutOfStock",
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: transformedProduct.averageRating,
-      reviewCount: transformedProduct.reviewCount,
-    },
   };
+
+  if (transformedProduct.reviewCount > 0) {
+    productJsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: transformedProduct.averageRating.toFixed(1),
+      reviewCount: transformedProduct.reviewCount,
+    };
+  }
 
   return (
     <>
-      <SEO
-        title={`${transformedProduct.name} | E-Store`}
-        description={transformedProduct.shortDescription || transformedProduct.description?.slice(0, 160)}
-        image={transformedProduct.images[0]?.url}
-        price={transformedProduct.price}
-        availability={transformedProduct.inStock ? "in stock" : "out of stock"}
-      />
+   <SEO
+  title={`${transformedProduct.name} | E-Store`}
+  description={transformedProduct.shortDescription || transformedProduct.description?.slice(0, 160)}
+  image={transformedProduct.images[0]?.url || ""} // 👈 Force fallback to an empty string or placeholder URL
+  price={transformedProduct.price}
+  availability={transformedProduct.inStock ? "in stock" : "out of stock"}
+/>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
       />
       
       <div className="container mx-auto px-4 py-8 space-y-12">
-        <Suspense fallback={<div className="animate-pulse">Loading product...</div>}>
+        <Suspense fallback={<div className="animate-pulse py-12 text-center">Loading product details...</div>}>
           <ProductDetailClient 
-            initialProduct={transformedProduct} 
-            relatedProducts={transformedRelatedProducts}
+            initialProduct={transformedProduct as any} 
+            relatedProducts={transformedRelatedProducts as any}
           />
         </Suspense>
       </div>

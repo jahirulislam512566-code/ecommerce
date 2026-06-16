@@ -6,6 +6,9 @@ export const loginSchema = z.object({
   password: z.string().min(6),
 });
 
+// Infer and export the LoginInput type
+export type LoginInput = z.infer<typeof loginSchema>;
+
 export const registerSchema = z.object({
   name: z.string().optional(),
   email: z.string().email(),
@@ -15,3 +18,6 @@ export const registerSchema = z.object({
   message: "Passwords don't match",
   path: ["confirmPassword"],
 });
+
+// Also export RegisterInput type if needed
+export type RegisterInput = z.infer<typeof registerSchema>;

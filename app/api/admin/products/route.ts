@@ -92,14 +92,15 @@ export async function POST(request: NextRequest) {
     const data = JSON.parse(formData.get("data") as string);
     const imageFiles = formData.getAll("images") as File[];
 
-    // Upload images
+    // Upload images safely using a for...of loop with entries() to retain index tracker safely
     const uploadedImages = [];
-    for (let i = 0; i < imageFiles.length; i++) {
-      const file = imageFiles[i];
+    let index = 0;
+    
+    for (const file of imageFiles) {
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
       
-      const filename = `${Date.now()}-${i}-${file.name}`;
+      const filename = `${Date.now()}-${index}-${file.name}`;
       const uploadDir = path.join(process.cwd(), "public", "uploads", "products");
       await mkdir(uploadDir, { recursive: true });
       
@@ -108,9 +109,11 @@ export async function POST(request: NextRequest) {
       
       uploadedImages.push({
         url: `/uploads/products/${filename}`,
-        isPrimary: i === 0,
-        order: i,
+        isPrimary: index === 0,
+        order: index,
       });
+
+      index++;
     }
 
     const product = await prisma.product.create({

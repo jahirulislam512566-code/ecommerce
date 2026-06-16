@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { 
   Mail, 
   Phone, 
@@ -11,12 +10,8 @@ import {
   Truck,
   RefreshCw,
   Heart,
-  Package,
   HelpCircle,
   ShoppingBag,
-  Star,
-  Send,
-  CheckCircle,
   ArrowUp
 } from "lucide-react";
 

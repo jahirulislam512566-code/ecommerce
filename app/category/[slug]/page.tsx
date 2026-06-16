@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ProductCard } from "@/components/products/product-card";
 import { CategoryBreadcrumb } from "@/components/categories/category-breadcrumb";
 import { Metadata } from "next";
+import type { Product } from "@/types";
 
 interface CategoryPageProps {
   params: { slug: string };
@@ -33,7 +34,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 }
 
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
-  const page = parseInt(searchParams.page || "1");
+  const page = parseInt(searchParams.page || "1", 10);
   const limit = 12;
   const skip = (page - 1) * limit;
 
@@ -83,11 +84,30 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
     }),
   ]);
 
-  const transformedProducts = products.map((product) => ({
+  // Fixed: Map missing properties with defaults to completely fulfill the Product shape requirement
+  // Map fields and explicitly cast the Prisma JsonValue to your type-safe Record
+  const transformedProducts: Product[] = products.map((product) => ({
     ...product,
     price: product.price.toNumber(),
     comparePrice: product.comparePrice?.toNumber() || null,
-    inStock: product.quantity > 0,
+    costPrice: product.costPrice?.toNumber() || null,
+    variants: product.variants.map((v) => ({
+      ...v,
+      price: v.price?.toNumber() || null,
+      comparePrice: v.comparePrice?.toNumber() || null,
+      // Fixed: Explicit type assertion to bridge the gap between JsonValue and Record<string, string>
+      attributes: (v.attributes || {}) as Record<string, string>,
+    })),
+    inStock: product.quantity > 0 || product.variants.some((v) => v.quantity > 0),
+    reviews: [],
+    averageRating: 0,
+    reviewCount: 0,
+    category: {
+      id: category.id,
+      name: category.name,
+      slug: category.slug,
+    },
+    vendor: null,
   }));
 
   const totalPages = Math.ceil(totalCount / limit);

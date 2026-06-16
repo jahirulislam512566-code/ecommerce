@@ -11,6 +11,17 @@ import { ProductReviews } from "./product-reviews";
 import { RelatedProducts } from "./related-products";
 import { AddToCartButton } from "@/components/cart/add-to-cart-button";
 
+// Define proper types
+interface Variant {
+  id?: string;
+  price?: number;
+  comparePrice?: number;
+  quantity?: number;
+  sku?: string;
+  name?: string;
+  attributes?: Record<string, string>;
+}
+
 interface ProductDetailClientProps {
   initialProduct: any;
   relatedProducts: any[];
@@ -29,8 +40,9 @@ export function ProductDetailClient({ initialProduct, relatedProducts }: Product
     );
   }
 
-  const [product, setProduct] = useState(initialProduct);
-  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [product] = useState(initialProduct);
+  // Remove setSelectedVariant since it's not used
+  const [selectedVariant] = useState<Variant | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [isWishlisted, setIsWishlisted] = useState(false);
@@ -56,10 +68,10 @@ export function ProductDetailClient({ initialProduct, relatedProducts }: Product
     }
   };
 
-  // Get current price (variant price overrides product price)
-  const currentPrice = selectedVariant?.price ?? product.price;
-  const currentComparePrice = selectedVariant?.comparePrice ?? product.comparePrice;
-  const currentStock = selectedVariant?.quantity ?? product.quantity;
+  // Get current price (variant price overrides product price) with proper null checks
+  const currentPrice = selectedVariant?.price ?? product.price ?? 0;
+  const currentComparePrice = selectedVariant?.comparePrice ?? product.comparePrice ?? 0;
+  const currentStock = selectedVariant?.quantity ?? product.quantity ?? 0;
   
   const discount = currentComparePrice && currentComparePrice > currentPrice
     ? Math.round(((currentComparePrice - currentPrice) / currentComparePrice) * 100)
@@ -132,14 +144,14 @@ export function ProductDetailClient({ initialProduct, relatedProducts }: Product
                 <Star
                   key={i}
                   className={`w-5 h-5 ${
-                    i < Math.floor(product.averageRating)
+                    i < Math.floor(product.averageRating || 0)
                       ? "fill-yellow-400 text-yellow-400"
                       : "text-gray-300"
                   }`}
                 />
               ))}
               <span className="ml-2 text-sm text-gray-600">
-                {product.averageRating.toFixed(1)} ({product.reviewCount} reviews)
+                {(product.averageRating || 0).toFixed(1)} ({product.reviewCount || 0} reviews)
               </span>
             </div>
           </div>
@@ -148,9 +160,9 @@ export function ProductDetailClient({ initialProduct, relatedProducts }: Product
           <div className="mb-6">
             <div className="flex items-baseline gap-3">
               <span className="text-3xl font-bold text-gray-900">
-                ${currentPrice?.toFixed(2)}
+                ${currentPrice.toFixed(2)}
               </span>
-              {currentComparePrice && currentComparePrice > currentPrice && (
+              {currentComparePrice > 0 && currentComparePrice > currentPrice && (
                 <span className="text-lg text-gray-500 line-through">
                   ${currentComparePrice.toFixed(2)}
                 </span>
@@ -297,7 +309,7 @@ export function ProductDetailClient({ initialProduct, relatedProducts }: Product
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
-              Reviews ({product.reviewCount})
+              Reviews ({product.reviewCount || 0})
             </button>
             <button
               onClick={() => setActiveTab("shipping")}
@@ -315,7 +327,7 @@ export function ProductDetailClient({ initialProduct, relatedProducts }: Product
         <div className="py-6">
           {activeTab === "description" && (
             <div className="prose max-w-none">
-              <div dangerouslySetInnerHTML={{ __html: product.description }} />
+              <div dangerouslySetInnerHTML={{ __html: product.description || "" }} />
               {product.tags?.length > 0 && (
                 <div className="mt-6">
                   <h3 className="font-semibold mb-2">Tags:</h3>
@@ -335,8 +347,8 @@ export function ProductDetailClient({ initialProduct, relatedProducts }: Product
             <ProductReviews
               productId={product.id}
               initialReviews={product.reviews}
-              averageRating={product.averageRating}
-              reviewCount={product.reviewCount}
+              averageRating={product.averageRating || 0}
+              reviewCount={product.reviewCount || 0}
             />
           )}
 

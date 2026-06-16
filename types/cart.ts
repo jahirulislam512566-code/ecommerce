@@ -1,3 +1,4 @@
+// types/cart.ts
 export interface CartItem {
   id: string
   productId: string
@@ -12,6 +13,20 @@ export interface CartItem {
   maxStock: number
 }
 
+// Explicitly define the input type
+export interface AddCartItemInput {
+  productId: string
+  name: string
+  slug: string
+  price: number
+  quantity: number
+  image: string
+  maxStock: number
+  variantId?: string
+  variantName?: string
+  variantAttributes?: Record<string, string>
+}
+
 export interface CartStore {
   items: CartItem[]
   isLoading: boolean
@@ -20,7 +35,7 @@ export interface CartStore {
   error: string | null
   
   // Actions
-  addItem: (item: Omit<CartItem, 'id'>) => Promise<void>
+  addItem: (item: AddCartItemInput) => Promise<void>
   removeItem: (itemId: string) => Promise<void>
   updateQuantity: (itemId: string, quantity: number) => Promise<void>
   clearCart: () => Promise<void>

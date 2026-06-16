@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const searchParams = request.nextUrl.searchParams;
+    const searchParams = _request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const status = searchParams.get("status");
@@ -27,11 +27,19 @@ export async function GET(request: NextRequest) {
     if (paymentStatus && paymentStatus !== "all") {
       where.paymentStatus = paymentStatus;
     }
+    
+    // Fixed: Clean structural relation layout for Prisma OR queries
     if (search) {
       where.OR = [
         { orderNumber: { contains: search, mode: "insensitive" } },
-        { user: { name: { contains: search, mode: "insensitive" } } },
-        { user: { email: { contains: search, mode: "insensitive" } } },
+        {
+          user: {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+            ]
+          }
+        }
       ];
     }
 
@@ -58,6 +66,7 @@ export async function GET(request: NextRequest) {
                   images: {
                     where: { isPrimary: true },
                     take: 1,
+                    select: { url: true }, // Fixed: Added select to ensure url is returned cleanly
                   },
                 },
               },
@@ -91,7 +100,7 @@ export async function GET(request: NextRequest) {
         price: item.price.toNumber(),
         total: item.total.toNumber(),
         variant: item.variant,
-        image: item.product.images[0]?.url,
+        image: item.product.images[0]?.url || "/placeholder.jpg",
       })),
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,

@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import Image from "next/image";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { 
   ArrowRight, 
@@ -14,15 +13,11 @@ import {
   Clock,
   Headphones,
   Gift,
-  Zap,
-  
+  Zap
 } from "lucide-react";
 import { ProductCard } from "@/components/products/product-card";
-
-type Product = {
-  id: string | number;
-  [key: string]: unknown;
-};
+// 1. Fixed: Imported the explicit shared Product definition matching ProductCard's expectations
+import type { Product } from "@/types";
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
@@ -30,17 +25,11 @@ export default function Home() {
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const heroSliderRef = useRef(null);
-
-   const [email, setEmail] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
-    
-    // Process the subscription data here (e.g., API call)
     console.log("Subscribing email:", email);
-    
-    // Reset form field after submission
     setEmail("");
   };
 
@@ -70,6 +59,7 @@ export default function Home() {
     loadProducts();
   }, []);
 
+  // Using useMemo here is optional, but declaring it inside or outside correctly avoids extra footprint loops
   const heroSlides = [
     {
       title: "Summer Sale Extravaganza",
@@ -77,17 +67,15 @@ export default function Home() {
       description: "Discover amazing deals on electronics, fashion, and more. Limited time offer!",
       cta: "Shop Now",
       ctaLink: "/products?sale=true",
-      image: "/hero/summer-sale.jpg",
       bgGradient: "from-orange-500 to-red-600",
       badge: "Limited Time",
     },
     {
-      title: "New Arrivals 2024",
+      title: "New Arrivals",
       subtitle: "Latest Collection Just Dropped",
       description: "Be the first to shop our newest products. Fresh styles, unbeatable prices.",
       cta: "Explore Now",
       ctaLink: "/products?sort=newest",
-      image: "/hero/new-arrivals.jpg",
       bgGradient: "from-blue-600 to-purple-600",
       badge: "Just In",
     },
@@ -97,21 +85,9 @@ export default function Home() {
       description: "Shop with confidence. Fast delivery, easy returns, and secure payment.",
       cta: "Start Shopping",
       ctaLink: "/products",
-      image: "/hero/free-shipping.jpg",
       bgGradient: "from-green-500 to-teal-600",
       badge: "Exclusive",
     },
-  ];
-
-  const categories = [
-    { name: "Electronics", slug: "electronics", count: 245, icon: "💻", color: "from-blue-500 to-cyan-500" },
-    { name: "Fashion", slug: "clothing", count: 532, icon: "👕", color: "from-pink-500 to-rose-500" },
-    { name: "Home & Living", slug: "home-living", count: 189, icon: "🏠", color: "from-emerald-500 to-teal-500" },
-    { name: "Sports", slug: "sports", count: 156, icon: "⚽", color: "from-orange-500 to-red-500" },
-    { name: "Books", slug: "books", count: 423, icon: "📚", color: "from-purple-500 to-indigo-500" },
-    { name: "Toys", slug: "toys", count: 267, icon: "🎮", color: "from-yellow-500 to-orange-500" },
-    { name: "Beauty", slug: "beauty", count: 198, icon: "💄", color: "from-pink-500 to-purple-500" },
-    { name: "Grocery", slug: "grocery", count: 345, icon: "🥑", color: "from-green-500 to-emerald-500" },
   ];
 
   const benefits = [
@@ -129,7 +105,6 @@ export default function Home() {
       role: "Verified Buyer",
       rating: 5,
       comment: "Absolutely love my purchase! The quality is amazing and shipping was super fast. Will definitely buy again.",
-      avatar: "/avatars/sarah.jpg",
       product: "Wireless Headphones",
     },
     {
@@ -137,7 +112,6 @@ export default function Home() {
       role: "Repeat Customer",
       rating: 5,
       comment: "Best online shopping experience. Great customer service and the products are exactly as described.",
-      avatar: "/avatars/michael.jpg",
       product: "Smart Watch",
     },
     {
@@ -145,35 +119,33 @@ export default function Home() {
       role: "First Time Buyer",
       rating: 4,
       comment: "Impressed with the variety and prices. Found exactly what I was looking for. Highly recommend!",
-      avatar: "/avatars/emily.jpg",
       product: "Yoga Mat",
     },
   ];
 
-  const nextSlide = () => {
+  const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
-  };
+  }, [heroSlides.length]);
 
-  const prevSlide = () => {
+  const prevSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
-  };
+  }, [heroSlides.length]);
 
+  // 2. Fixed: Modified intervals cleanly to guarantee no dangling background intervals active on component changes
   useEffect(() => {
     const interval = setInterval(nextSlide, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [nextSlide]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white w-full overflow-x-hidden">
       {/* Hero Slider */}
-      <section className="relative overflow-hidden">
-        <div className="relative h-[600px] md:h-[700px]">
+      <section className="relative overflow-hidden w-full">
+        <div className="relative h-[600px] md:h-[700px] w-full">
           {heroSlides.map((slide, index) => (
             <div
               key={index}
-              className={`absolute inset-0 transition-transform duration-500 ease-in-out ${
-                index === currentSlide ? "translate-x-0" : "translate-x-full"
-              }`}
+              className="absolute inset-0 transition-transform duration-500 ease-in-out"
               style={{ transform: `translateX(${(index - currentSlide) * 100}%)` }}
             >
               <div className={`absolute inset-0 bg-gradient-to-r ${slide.bgGradient}`}>
@@ -204,23 +176,26 @@ export default function Home() {
           {/* Slider Controls */}
           <button
             onClick={prevSlide}
-            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-sm p-2 rounded-full hover:bg-white/30 transition-colors"
+            aria-label="Previous image slide"
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-sm p-2 rounded-full hover:bg-white/30 transition-colors z-10"
           >
             <ChevronLeft className="w-6 h-6 text-white" />
           </button>
           <button
             onClick={nextSlide}
-            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-sm p-2 rounded-full hover:bg-white/30 transition-colors"
+            aria-label="Next image slide"
+            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 backdrop-blur-sm p-2 rounded-full hover:bg-white/30 transition-colors z-10"
           >
             <ChevronRight className="w-6 h-6 text-white" />
           </button>
 
           {/* Slide Indicators */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
             {heroSlides.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
+                aria-label={`Go to slide index ${index + 1}`}
                 className={`w-2 h-2 rounded-full transition-all ${
                   index === currentSlide ? "w-8 bg-white" : "bg-white/50"
                 }`}
@@ -258,42 +233,12 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Categories Section */}
-      {/* <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Shop by Category
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Explore our curated collection of products across various categories
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-            {categories.map((category) => (
-              <Link
-                key={category.slug}
-                href={`/products?category=${category.slug}`}
-                className="group text-center"
-              >
-                <div className={`bg-gradient-to-br ${category.color} p-4 rounded-2xl mb-3 group-hover:scale-105 transition-transform shadow-lg`}>
-                  <span className="text-4xl">{category.icon}</span>
-                </div>
-                <h3 className="font-medium text-gray-900 text-sm">{category.name}</h3>
-                <p className="text-xs text-gray-500">{category.count} items</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section> */}
-
       {/* Flash Sale Section */}
       <section className="py-16 bg-gradient-to-r from-red-600 to-orange-600 text-white">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center mb-8">
             <div className="flex items-center gap-3 mb-4 md:mb-0">
-              <Zap className="w-8 h-8" />
+              <Zap className="w-8 h-8 animate-bounce" />
               <div>
                 <h2 className="text-3xl font-bold">Flash Sale</h2>
                 <p className="text-white/90">Limited time offers - Up to 70% off</p>
@@ -317,7 +262,7 @@ export default function Home() {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {trendingProducts.slice(0, 4).map((product: any) => (
+            {trendingProducts.slice(0, 4).map((product) => (
               <ProductCard key={product.id} product={product} variant="compact" />
             ))}
           </div>
@@ -351,7 +296,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {trendingProducts.slice(0, 4).map((product: any) => (
+              {trendingProducts.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
@@ -386,7 +331,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredProducts.slice(0, 4).map((product: any) => (
+              {featuredProducts.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
@@ -421,15 +366,13 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {newArrivals.slice(0, 4).map((product: any) => (
+              {newArrivals.slice(0, 4).map((product) => (
                 <ProductCard key={product.id} product={product} />
               ))}
             </div>
           )}
         </div>
       </section>
-
-     
 
       {/* Testimonials */}
       <section className="py-16 bg-gray-50">
@@ -484,7 +427,7 @@ export default function Home() {
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600 mb-2">1000+</div>
-              <div className="text-gray-600">Products</div>
+              <div className="text-gray-600">Products Available</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600 mb-2">24/7</div>
@@ -495,46 +438,40 @@ export default function Home() {
       </section>
 
       {/* Newsletter Section */}
-     
-      <section className="py-20 bg-gradient-to-r from-blue-500 to-blue-400 text-slate-100 border-y border-slate-800">
-      <div className="container mx-auto px-6 text-center">
-        <div className="max-w-3xl mx-auto">
-          
-          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-4">
-            Join our inner circle
-          </h2>
-          
-          <p className="text-slate-100 text-base sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">
-            Receive 10% off your first order, alongside curated product launches, exclusive member invitations, and early access to sales.
-          </p>
+      <section className="py-20 bg-gradient-to-r from-blue-500 to-blue-400 text-slate-100 border-y border-slate-200">
+        <div className="container mx-auto px-6 text-center">
+          <div className="max-w-3xl mx-auto">
+            <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight text-white mb-4">
+              Join our inner circle
+            </h2>
+            <p className="text-slate-100 text-base sm:text-lg mb-8 max-w-xl mx-auto leading-relaxed">
+              Receive 10% off your first order, alongside curated product launches, exclusive member invitations, and early access to sales.
+            </p>
 
-          <form onSubmit={handleSubmit} className="max-w-md mx-auto flex flex-col sm:flex-row gap-3">
-            <input
-              type="email"
-              value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-              placeholder="Enter your email address"
-              aria-label="Email address for newsletter subscription"
-              className="flex-1 px-4 py-3 bg-slate-900 border border-slate-700 text-white placeholder-slate-500 rounded-md focus:outline-none focus:border-white focus:ring-1 focus:ring-white transition-all text-sm"
-              required
-            />
-            <button
-              type="submit"
-              className="bg-white text-slate-950 px-6 py-3 rounded-md text-sm font-medium hover:bg-slate-200 transition-colors shadow-sm whitespace-nowrap"
-            >
-              Subscribe
-            </button>
-          </form>
+            <form onSubmit={handleSubmit} className="max-w-md mx-auto flex flex-col sm:flex-row gap-3">
+              <input
+                type="email"
+                value={email}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
+                aria-label="Email address for newsletter subscription"
+                className="flex-1 px-4 py-3 bg-white border border-slate-300 text-gray-900 placeholder-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all text-sm"
+                required
+              />
+              <button
+                type="submit"
+                className="bg-gray-900 text-white px-6 py-3 rounded-md text-sm font-medium hover:bg-gray-800 transition-colors shadow-sm whitespace-nowrap"
+              >
+                Subscribe
+              </button>
+            </form>
 
-          <p className="text-slate-200 text-sm mt-4">
-            We respect your privacy. Unsubscribe securely at any time.
-          </p>
+            <p className="text-slate-100 text-sm mt-4">
+              We respect your privacy. Unsubscribe securely at any time.
+            </p>
+          </div>
         </div>
-      </div>
-    </section>
-      
+      </section>
     </div>
   );
 }
-
-

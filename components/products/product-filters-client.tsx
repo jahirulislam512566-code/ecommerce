@@ -3,16 +3,17 @@
 import { useState } from "react"
 import { Filter, X, Star } from "lucide-react"
 
-interface ProductFilters {
-  category?: string
-  minPrice?: number
-  maxPrice?: number
-  minRating?: number
-  inStock?: boolean
+// Update this interface to make all properties optional
+interface ProductFiltersType {
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  minRating?: number;
+  inStock?: boolean;
 }
 
 interface ProductFiltersClientProps {
-  filters: ProductFilters
+  filters: ProductFiltersType; // Use the flexible type
   onFilterChange: (key: string, value: any) => void
   onClearFilters: () => void
   categories: Array<{
@@ -175,6 +176,16 @@ export function ProductFilters({
           <div className="mb-6">
             <h3 className="font-semibold mb-3">Customer Rating</h3>
             <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="rating"
+                  checked={filters.minRating === undefined}
+                  onChange={() => onFilterChange("minRating", undefined)}
+                  className="text-blue-600"
+                />
+                <span>All Ratings</span>
+              </label>
               {[4, 3, 2, 1].map((rating) => (
                 <label key={rating} className="flex items-center gap-2 cursor-pointer">
                   <input

@@ -27,9 +27,8 @@ export async function GET(request: NextRequest) {
       
       categories = buildCategoryTree(allCategories);
     } else {
-      // Get flat categories
-      categories = await prisma.category.findMany({
-        where: parentOnly ? { parentId: null } : undefined,
+      // Fixed: Dynamically build query args to satisfy exactOptionalPropertyTypes
+      const queryArgs: any = {
         include: {
           children: true,
           ...(includeProducts && {
@@ -40,7 +39,14 @@ export async function GET(request: NextRequest) {
           }),
         },
         orderBy: { name: "asc" },
-      });
+      };
+
+      // Only attach the where filter if it's explicitly needed
+      if (parentOnly) {
+        queryArgs.where = { parentId: null };
+      }
+
+      categories = await prisma.category.findMany(queryArgs);
     }
 
     // Add product count if requested
@@ -120,4 +126,27 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Helper function to turn flat database rows into a nested tree structure
+function buildCategoryTree(nodes: any[]): any[] {
+  const map: { [key: string]: any } = {};
+  const roots: any[] = [];
+
+  // Step 1: Map all nodes by their IDs and initialize an empty array for their children
+  for (const node of nodes) {
+    map[node.id] = { ...node, children: [] };
+  }
+
+  // Step 2: Tie child items directly to their designated parent nodes or push them to the roots list
+  for (const node of nodes) {
+    const mappedNode = map[node.id];
+    if (node.parentId && map[node.parentId]) {
+      map[node.parentId].children.push(mappedNode);
+    } else {
+      roots.push(mappedNode);
+    }
+  }
+
+  return roots;
 }

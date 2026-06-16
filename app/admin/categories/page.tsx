@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, Trash2, FolderTree, ChevronRight } from "lucide-react";
-import Link from "next/link";
+import { Plus, Edit, Trash2, FolderTree } from "lucide-react";
+
 
 interface Category {
   id: string;

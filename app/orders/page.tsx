@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Package, Eye, ChevronRight } from "lucide-react";
+import { Package, ChevronRight, AlertCircle } from "lucide-react";
 
 interface Order {
   id: string;
@@ -17,22 +17,35 @@ interface Order {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
+  // Fixed: Wrapped API caller in a useCallback instance to guarantee stable reference metrics
+  const fetchOrders = useCallback(async () => {
     try {
+      setIsLoading(true);
+      setError(null);
+      
       const response = await fetch("/api/orders");
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch orders (${response.status})`);
+      }
+      
       const data = await response.json();
-      setOrders(data.orders);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
+      
+      // Fixed: Fallback to an empty array fallback if API structure fails or misses properties
+      setOrders(data.orders || []);
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+      setError(err instanceof Error ? err.message : "Something went wrong while loading your orders.");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const getStatusColor = (status: string) => {
     const colors = {
@@ -50,6 +63,25 @@ export default function OrdersPage() {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  // New: Clean and graceful UI layout error display handling
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
+        <div className="text-center max-w-md w-full bg-white rounded-lg shadow p-8">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Failed to Load Orders</h1>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <button
+            onClick={() => fetchOrders()}
+            className="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-medium transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     );
   }
@@ -87,13 +119,13 @@ export default function OrdersPage() {
               <div className="p-6">
                 <div className="flex flex-wrap justify-between items-start gap-4">
                   <div>
-                    <p className="text-sm text-gray-500">Order #{order.orderNumber}</p>
+                    <p className="font-semibold text-gray-900">Order #{order.orderNumber}</p>
                     <p className="text-sm text-gray-500 mt-1">
                       {new Date(order.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                    <span className={`inline-flex px-2.5 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
                       {order.status}
                     </span>
                   </div>
@@ -101,10 +133,10 @@ export default function OrdersPage() {
                 
                 <div className="mt-4 flex justify-between items-end">
                   <div>
-                    <p className="text-sm text-gray-600">Total Amount</p>
+                    <p className="text-sm text-gray-500">Total Amount</p>
                     <p className="text-xl font-bold text-gray-900">${order.total.toFixed(2)}</p>
                   </div>
-                  <div className="flex items-center gap-1 text-blue-600">
+                  <div className="flex items-center gap-1 text-blue-600 font-medium hover:text-blue-700">
                     <span className="text-sm">View Details</span>
                     <ChevronRight className="w-4 h-4" />
                   </div>

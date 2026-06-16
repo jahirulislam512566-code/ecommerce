@@ -17,12 +17,12 @@ import {
   Package,
   LayoutDashboard,
   Zap,
+  ChevronRight,
+  Truck,
+  RotateCcw,
   Gift,
   Phone,
   MapPin,
-  ChevronRight,
-  Truck,
-  RotateCcw
 } from "lucide-react";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { useCartStore } from "@/stores/cartStore";
@@ -77,7 +77,7 @@ export function Header() {
   const { data: session } = useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -179,8 +179,8 @@ export function Header() {
       <header className={`sticky top-0 z-50 w-full transition-all duration-300 ${
         isScrolled ? "bg-white shadow-lg" : "bg-white/95 backdrop-blur-sm border-b"
       }`}>
-        {/* Top Bar - Uncomment if needed */}
-        {/* <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm py-2">
+        {/* Top Bar */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm py-2">
           <div className="container mx-auto px-4">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
               <div className="flex items-center gap-6">
@@ -213,7 +213,7 @@ export function Header() {
               </div>
             </div>
           </div>
-        </div> */}
+        </div>
 
         {/* Main Header */}
         <div className="container mx-auto px-4">
@@ -240,11 +240,6 @@ export function Header() {
                         }`}
                       >
                         {item.name}
-                        {item.badge && (
-                          <span className="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                            {item.badge}
-                          </span>
-                        )}
                         <ChevronDown className="w-3 h-3" />
                       </Link>
                       
@@ -348,7 +343,7 @@ export function Header() {
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                          <p className="text-xs text-gray-500">${product.price?.toFixed(2)}</p>
+                          <p className="text-xs text-gray-500">${product.price?.toFixed?.(2) || '0.00'}</p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-gray-400" />
                       </button>
@@ -372,6 +367,7 @@ export function Header() {
               <button
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
                 className="lg:hidden p-2 text-gray-600 hover:text-blue-600 rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Search"
               >
                 <Search className="w-5 h-5" />
               </button>
@@ -380,6 +376,7 @@ export function Header() {
               <Link
                 href="/profile?tab=wishlist"
                 className="hidden sm:flex p-2 text-gray-600 hover:text-red-500 rounded-full hover:bg-gray-100 transition-colors relative group"
+                aria-label="Wishlist"
               >
                 <Heart className="w-5 h-5" />
                 <span className="absolute inset-0 bg-red-100 rounded-full scale-0 group-hover:scale-100 transition-transform" />
@@ -389,6 +386,7 @@ export function Header() {
               <button
                 onClick={() => setIsCartOpen(true)}
                 className="relative p-2 text-gray-600 hover:text-blue-600 rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Cart"
               >
                 <ShoppingCart className="w-5 h-5" />
                 {isMounted && cartItemsCount > 0 && (
@@ -403,6 +401,7 @@ export function Header() {
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center gap-2 p-2 text-gray-600 hover:text-blue-600 rounded-full hover:bg-gray-100 transition-colors"
+                  aria-label="User menu"
                 >
                   <div className="relative">
                     {session?.user?.image ? (
@@ -486,7 +485,10 @@ export function Header() {
                           </div>
                           <div className="border-t p-2">
                             <button
-                              onClick={() => window.location.href = "/api/auth/signout"}
+                              onClick={() => {
+                                setUserMenuOpen(false);
+                                window.location.href = "/api/auth/signout";
+                              }}
                               className="flex items-center gap-3 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             >
                               <LogOut className="w-4 h-4" />
@@ -521,6 +523,7 @@ export function Header() {
               <button
                 onClick={() => setMobileMenuOpen(true)}
                 className="lg:hidden p-2 text-gray-600 hover:text-blue-600 rounded-full hover:bg-gray-100 transition-colors"
+                aria-label="Open menu"
               >
                 <Menu className="w-6 h-6" />
               </button>
@@ -557,7 +560,7 @@ export function Header() {
                   <ShoppingCart className="w-6 h-6" />
                   <span className="text-xl font-bold">Menu</span>
                 </div>
-                <button onClick={() => setMobileMenuOpen(false)} className="p-2 hover:bg-white/10 rounded-lg">
+                <button onClick={() => setMobileMenuOpen(false)} className="p-2 hover:bg-white/10 rounded-lg" aria-label="Close menu">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -595,11 +598,6 @@ export function Header() {
                     >
                       <div className="flex items-center gap-3">
                         <span>{item.name}</span>
-                        {item.badge && (
-                          <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
-                            {item.badge}
-                          </span>
-                        )}
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-400" />
                     </Link>
@@ -648,24 +646,5 @@ export function Header() {
       {/* Cart Drawer */}
       <CartDrawer isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
     </>
-  );
-}
-
-// Mic helper icon component
-function Mic(props: any) {
-  return (
-    <svg 
-      {...props} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round"  
-      strokeLinejoin="round" 
-    >
-      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-      <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
-      <line x1="12" x2="12" y1="19" y2="22" />
-    </svg>
   );
 }

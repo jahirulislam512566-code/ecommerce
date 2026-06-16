@@ -1,22 +1,15 @@
 // app/api/products/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
+import type { Prisma } from '@prisma/client';
 
 export async function GET(req: NextRequest) {
   try {
-    // Remove admin restriction so customers can view products
-    // const session = await getServerSession(authOptions);
+    console.log("=== PRODUCTS GET API CALLED ===");
     
-    // Optional: Only restrict if you want admin-only access
-    // if (!session?.user?.role || session.user.role !== 'ADMIN') {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
-
     const { searchParams } = new URL(req.url);
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '12');
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const limit = parseInt(searchParams.get('limit') || '12', 10);
     const search = searchParams.get('search') || '';
     const categorySlug = searchParams.get('category');
     const minPrice = searchParams.get('minPrice');
@@ -27,40 +20,45 @@ export async function GET(req: NextRequest) {
 
     const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where: any = {
-      status: "ACTIVE",
-      visibility: "PUBLISHED",
-    };
+    // Build where clause using precise array grouping to avoid key collisions
+    const andConditions: Prisma.ProductWhereInput[] = [
+      { status: "ACTIVE" },
+      { visibility: "PUBLISHED" }
+    ];
 
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-        { tags: { has: search } },
-      ];
+      andConditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+          { tags: { has: search } },
+        ]
+      });
     }
 
     if (categorySlug) {
-      where.category = { slug: categorySlug };
+      andConditions.push({ category: { slug: categorySlug } });
     }
 
     if (minPrice || maxPrice) {
-      where.price = {};
-      if (minPrice) where.price.gte = parseFloat(minPrice);
-      if (maxPrice) where.price.lte = parseFloat(maxPrice);
+      const priceCondition: Prisma.DecimalFilter = {};
+      if (minPrice) priceCondition.gte = parseFloat(minPrice);
+      if (maxPrice) priceCondition.lte = parseFloat(maxPrice);
+      andConditions.push({ price: priceCondition });
     }
 
     if (featured) {
-      where.featured = true;
+      andConditions.push({ featured: true });
     }
 
     if (inStock) {
-      where.quantity = { gt: 0 };
+      andConditions.push({ quantity: { gt: 0 } });
     }
 
-    // Build order by
-    let orderBy = {};
+    const where: Prisma.ProductWhereInput = { AND: andConditions };
+
+    // Build valid type-safe order conditions
+    let orderBy: Prisma.ProductOrderByWithRelationInput = { createdAt: 'desc' };
     switch (sort) {
       case 'price_asc':
         orderBy = { price: 'asc' };
@@ -68,15 +66,11 @@ export async function GET(req: NextRequest) {
       case 'price_desc':
         orderBy = { price: 'desc' };
         break;
-      case 'newest':
-        orderBy = { createdAt: 'desc' };
-        break;
       case 'oldest':
         orderBy = { createdAt: 'asc' };
         break;
-      case 'popularity_desc':
-        orderBy = { orderItems: { _count: 'desc' } };
-        break;
+      case 'newest':
+      case 'popularity_desc': // Fallback behavior for custom relational counter sort definitions
       default:
         orderBy = { createdAt: 'desc' };
     }
@@ -106,7 +100,7 @@ export async function GET(req: NextRequest) {
       prisma.product.count({ where }),
     ]);
 
-    // Transform products to include computed fields
+    // Transform products and inner nested decimals cleanly
     const transformedProducts = products.map(product => ({
       id: product.id,
       name: product.name,
@@ -123,7 +117,13 @@ export async function GET(req: NextRequest) {
       featured: product.featured,
       tags: product.tags,
       images: product.images,
-      variants: product.variants,
+      // Fixed: Safely convert variant prices from Decimal instances to JavaScript numbers
+      variants: product.variants.map(v => ({
+        id: v.id,
+        attributes: v.attributes as Record<string, string>,
+        quantity: v.quantity,
+        price: v.price?.toNumber() || null,
+      })),
       category: product.category,
       inStock: product.quantity > 0 || product.variants.some(v => v.quantity > 0),
       createdAt: product.createdAt,

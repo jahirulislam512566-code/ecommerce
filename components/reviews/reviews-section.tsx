@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Star, StarHalf, User, Calendar, AlertCircle } from "lucide-react";
+import { Star, StarHalf, Calendar, AlertCircle } from "lucide-react";
 import { useReviews } from "@/hooks/use-reviews";
 import { ReviewForm } from "./review-form";
 

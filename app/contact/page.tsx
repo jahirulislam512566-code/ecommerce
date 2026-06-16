@@ -9,11 +9,6 @@ import {
   Send, 
   CheckCircle,
   MessageCircle,
-  Linkedin,
-  Twitter,
-  Instagram,
-  Facebook,
-  Youtube
 } from "lucide-react";
 import Link from "next/link";
 

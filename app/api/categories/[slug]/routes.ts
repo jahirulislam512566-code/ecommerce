@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(
-  request: NextRequest,
-  { params }: { params: { slug: string } }
+  _request: NextRequest, // Fixed: Added underscore for unused variable
+  { params }: { params: Promise<{ slug: string }> } // Fixed: Typed as Promise for Next.js compatibility
 ) {
   try {
+    const resolvedParams = await params;
+    const { slug } = resolvedParams;
+
     const category = await prisma.category.findUnique({
-      where: { slug: params.slug },
+      where: { slug },
       include: {
         parent: true,
         children: {
@@ -24,9 +27,9 @@ export async function GET(
             images: {
               where: { isPrimary: true },
               take: 1,
+                },
+              },
             },
-          },
-        },
         _count: {
           select: { products: true, children: true },
         },
@@ -64,15 +67,18 @@ export async function GET(
 }
 
 export async function PUT(
-  request: NextRequest,
-  { params }: { params: { slug: string } }
+  request: NextRequest, // Used here because we access request.json()
+  { params }: { params: Promise<{ slug: string }> } // Fixed: Typed as Promise
 ) {
   try {
+    const resolvedParams = await params;
+    const { slug } = resolvedParams;
+
     const body = await request.json();
     const { name, description, image, parentId } = body;
 
     const category = await prisma.category.update({
-      where: { slug: params.slug },
+      where: { slug },
       data: {
         ...(name && { name }),
         ...(description !== undefined && { description }),
@@ -95,13 +101,16 @@ export async function PUT(
 }
 
 export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { slug: string } }
+  _request: NextRequest, // Fixed: Added underscore for unused variable
+  { params }: { params: Promise<{ slug: string }> } // Fixed: Typed as Promise
 ) {
   try {
+    const resolvedParams = await params;
+    const { slug } = resolvedParams;
+
     // Check if category has products
     const category = await prisma.category.findUnique({
-      where: { slug: params.slug },
+      where: { slug },
       include: {
         _count: { select: { products: true, children: true } },
       },
@@ -125,7 +134,7 @@ export async function DELETE(
     }
 
     await prisma.category.delete({
-      where: { slug: params.slug },
+      where: { slug },
     });
 
     return NextResponse.json({

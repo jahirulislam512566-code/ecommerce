@@ -3,7 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function GET(request: NextRequest) {
+// GET: Fetch authenticated user's orders
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     
@@ -15,7 +16,6 @@ export async function GET(request: NextRequest) {
       where: { userId: session.user.id },
       include: {
         items: {
-          take: 1,
           select: {
             quantity: true,
           },
@@ -41,13 +41,22 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// POST: Create a new order for authenticated user
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    
+    // Fixed: Enforce authentication boundary since schema requires a non-nullable userId
+    if (!session?.user?.id) {
+      return NextResponse.json(
+        { success: false, error: "You must be logged in to complete an order." },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
     
     const {
-      email,
       shippingAddress,
       billingAddress,
       items,
@@ -67,7 +76,7 @@ export async function POST(request: NextRequest) {
     const order = await prisma.order.create({
       data: {
         orderNumber,
-        userId: session?.user?.id,
+        userId: session.user.id, // Fixed: Safely guaranteed to be a valid string now
         status: paymentMethod === "cod" ? "PROCESSING" : "PENDING",
         paymentStatus: "PENDING",
         subtotal: subtotal || 0,
@@ -80,13 +89,18 @@ export async function POST(request: NextRequest) {
         customerNote: notes || "",
         shippingMethod: shippingMethod || "standard",
         items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            variantId: item.variantId,
-            quantity: item.quantity,
-            price: item.price,
-            total: item.price * item.quantity,
-          })),
+          create: items.map((item: any) => {
+            const itemPrice = Number(item.price);
+            const itemQuantity = Number(item.quantity);
+            
+            return {
+              productId: item.productId,
+              variantId: item.variantId || null,
+              quantity: itemQuantity,
+              price: itemPrice,
+              total: Math.round(itemPrice * itemQuantity * 100) / 100,
+            };
+          }),
         },
       },
       include: {
@@ -95,15 +109,13 @@ export async function POST(request: NextRequest) {
     });
 
     // Clear cart for logged-in users
-    if (session?.user?.id) {
-      const cart = await prisma.cart.findUnique({
-        where: { userId: session.user.id },
+    const cart = await prisma.cart.findUnique({
+      where: { userId: session.user.id },
+    });
+    if (cart) {
+      await prisma.cartItem.deleteMany({
+        where: { cartId: cart.id },
       });
-      if (cart) {
-        await prisma.cartItem.deleteMany({
-          where: { cartId: cart.id },
-        });
-      }
     }
 
     return NextResponse.json({

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useSession } from "next-auth/react"
-import { Bell, Lock, Mail, User } from "lucide-react"
+import { Bell, Lock, User } from "lucide-react"
 
 export function AccountSettings() {
   const { data: session, update } = useSession()

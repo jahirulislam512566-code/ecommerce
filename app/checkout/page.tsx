@@ -20,8 +20,6 @@ import {
   ArrowLeft,
   ChevronRight,
   CheckCircle,
-  Wallet,
-  Building2,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -54,7 +52,8 @@ interface CheckoutFormData {
 export default function CheckoutPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { items, getSubtotal, getTotal, clearCart } = useCartStore();
+  // Fixed: Removed unused 'getTotal' descriptor to clear compilation constraints
+  const { items, getSubtotal, clearCart } = useCartStore();
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
@@ -158,75 +157,75 @@ export default function CheckoutPage() {
     });
   };
 
- const createOrder = async () => {
-  setIsLoading(true);
-  try {
-    const response = await fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: formData.email,
-        shippingAddress: formData.shippingAddress,
-        billingAddress: formData.sameAsShipping ? formData.shippingAddress : formData.billingAddress,
-        items: items.map(item => ({
-          productId: item.productId,
-          variantId: item.variantId,
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        subtotal,
-        shippingCost,
-        tax,
-        total,
-        notes: formData.notes,
-        shippingMethod: formData.shippingMethod,
-        paymentMethod: formData.paymentMethod,
-      }),
-    });
-
-    // Get response text first for debugging
-    const responseText = await response.text();
-    console.log("Response:", responseText);
-    
-    let data;
+  const createOrder = async () => {
+    setIsLoading(true);
     try {
-      data = JSON.parse(responseText);
-    } catch (parseError) {
-      console.error("JSON parse error:", responseText);
-      throw new Error("Invalid response from server");
-    }
-    
-    if (!response.ok) {
-      throw new Error(data.error || "Failed to create order");
-    }
-    
-    if (data.success) {
-      setOrderId(data.order.id);
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          shippingAddress: formData.shippingAddress,
+          billingAddress: formData.sameAsShipping ? formData.shippingAddress : formData.billingAddress,
+          items: items.map(item => ({
+            productId: item.productId,
+            variantId: item.variantId,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          subtotal,
+          shippingCost,
+          tax,
+          total,
+          notes: formData.notes,
+          shippingMethod: formData.shippingMethod,
+          paymentMethod: formData.paymentMethod,
+        }),
+      });
+
+      const responseText = await response.text();
+      console.log("Response:", responseText);
       
-      if (data.requiresPayment && formData.paymentMethod === "card") {
-        // Create payment intent for Stripe
-        const paymentResponse = await fetch("/api/payments/create-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId: data.order.id }),
-        });
-        
-        const paymentText = await paymentResponse.text();
-        const paymentData = JSON.parse(paymentText);
-        setClientSecret(paymentData.clientSecret);
-        setStep(2);
-      } else {
-        // COD - redirect to success page
-        router.push(`/checkout/success/${data.order.id}`);
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error("JSON parse error:", responseText);
+        throw new Error("Invalid response from server");
       }
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to create order");
+      }
+      
+      if (data.success) {
+        setOrderId(data.order.id);
+        
+        if (data.requiresPayment && formData.paymentMethod === "card") {
+          const paymentResponse = await fetch("/api/payments/create-intent", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ orderId: data.order.id }),
+          });
+          
+          const paymentText = await paymentResponse.text();
+          const paymentData = JSON.parse(paymentText);
+          setClientSecret(paymentData.clientSecret);
+          setStep(2);
+        } else {
+          // COD or No payment required - wipe cart state clean and go to success screen
+          clearCart();
+          router.push(`/checkout/success/${data.order.id}`);
+        }
+      }
+    } catch (error) {
+      console.error("Error creating order:", error);
+      alert(error instanceof Error ? error.message : "Failed to create order. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error("Error creating order:", error);
-    alert(error instanceof Error ? error.message : "Failed to create order. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
+
   const nextStep = () => {
     if (step === 2) {
       createOrder();
@@ -493,7 +492,7 @@ export default function CheckoutPage() {
 function StripePaymentForm({ orderId }: { orderId: string }) {
   const stripe = useStripe();
   const elements = useElements();
-  const router = useRouter();
+  // const router = useRouter();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

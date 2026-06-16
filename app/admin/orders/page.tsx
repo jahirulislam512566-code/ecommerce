@@ -59,8 +59,9 @@ export default function AdminOrders() {
       SHIPPED: { icon: Truck, color: "bg-purple-100 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400", label: "Shipped" },
       DELIVERED: { icon: CheckCircle, color: "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400", label: "Delivered" },
       CANCELLED: { icon: XCircle, color: "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400", label: "Cancelled" },
+      REFUNDED: { icon: Package, color: "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400", label: "Refunded" },
     };
-    return configs[status] || configs.PENDING;
+    return configs[status] || { icon: Clock, color: "bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400", label: status };
   };
 
   const filteredOrders = orders.filter(order => {
@@ -72,7 +73,7 @@ export default function AdminOrders() {
   });
 
   const statusOptions = [
-    "PENDING", "PROCESSING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"
+    "PENDING", "PROCESSING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED", "REFUNDED"
   ];
 
   return (
@@ -135,21 +136,23 @@ export default function AdminOrders() {
               </thead>
               <tbody className="divide-y dark:divide-gray-700">
                 {filteredOrders.map((order) => {
-                  const StatusIcon = getStatusConfig(order.status).icon;
                   const statusConfig = getStatusConfig(order.status);
+                  // Use a fallback color if statusConfig is undefined
+                  const statusColor = statusConfig?.color || "bg-gray-100 text-gray-700";
+                  
                   return (
                     <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-4 py-3 font-medium text-gray-900">#{order.orderNumber}</td>
                       <td className="px-4 py-3">
                         <p className="font-medium">{order.customerName}</p>
                         <p className="text-sm text-gray-500">{order.customerEmail}</p>
-                       </td>
+                      </td>
                       <td className="px-4 py-3 font-semibold">${order.total.toFixed(2)}</td>
                       <td className="px-4 py-3">
                         <select
                           value={order.status}
                           onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`}
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${statusColor}`}
                         >
                           {statusOptions.map(status => (
                             <option key={status} value={status}>{status}</option>

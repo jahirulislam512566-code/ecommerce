@@ -213,9 +213,9 @@ export async function GET(request: NextRequest) {
     }));
 
     // Calculate total customers with orders
-    const customersWithOrders = await prisma.order.groupBy({
-      by: ["userId"],
-    });
+  // const _customersWithOrders = await prisma.order.groupBy({
+  //     by: ["userId"],
+  //   });
 
     const stats = {
       totalRevenue: currentRevenueValue,

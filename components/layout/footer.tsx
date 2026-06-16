@@ -10,13 +10,7 @@ import {
   Shield,
   Truck,
   RefreshCw,
-  Heart,
-  Send,
-  CheckCircle,
-  Smartphone,
-  Award,
   Headphones,
-  Clock,
   ArrowUp
 } from "lucide-react";
 
@@ -55,13 +49,13 @@ const footerSections = {
   ],
 };
 
-// Using emojis for social media (more reliable and no import issues)
+// Social links with proper icons
 const socialLinks = [
-  { name: "Facebook", emoji: "📘", href: "https://facebook.com", color: "hover:bg-[#1877f2]" },
-  { name: "Twitter", emoji: "🐦", href: "https://twitter.com", color: "hover:bg-[#1da1f2]" },
-  { name: "Instagram", emoji: "📷", href: "https://instagram.com", color: "hover:bg-[#e4405f]" },
-  { name: "YouTube", emoji: "📺", href: "https://youtube.com", color: "hover:bg-[#ff0000]" },
-  { name: "LinkedIn", emoji: "🔗", href: "https://linkedin.com", color: "hover:bg-[#0077b5]" },
+  { name: "Facebook", icon: "📘", href: "https://facebook.com", color: "hover:bg-[#1877f2]" },
+  { name: "Twitter", icon: "🐦", href: "https://twitter.com", color: "hover:bg-[#1da1f2]" },
+  { name: "Instagram", icon: "📷", href: "https://instagram.com", color: "hover:bg-[#e4405f]" },
+  { name: "YouTube", icon: "📺", href: "https://youtube.com", color: "hover:bg-[#ff0000]" },
+  { name: "LinkedIn", icon: "🔗", href: "https://linkedin.com", color: "hover:bg-[#0077b5]" },
 ];
 
 const paymentMethods = [
@@ -74,10 +68,10 @@ const paymentMethods = [
 ];
 
 const features = [
-  { icon: Truck, title: "Free Shipping", description: "On orders over $50", color: "text-blue-400" },
-  { icon: Shield, title: "Secure Payment", description: "100% secure transactions", color: "text-green-400" },
-  { icon: RefreshCw, title: "Easy Returns", description: "30-day return policy", color: "text-purple-400" },
-  { icon: Headphones, title: "24/7 Support", description: "Dedicated customer service", color: "text-orange-400" },
+  { icon: Truck, title: "Free Shipping", description: "On orders over $50" },
+  { icon: Shield, title: "Secure Payment", description: "100% secure transactions" },
+  { icon: RefreshCw, title: "Easy Returns", description: "30-day return policy" },
+  { icon: Headphones, title: "24/7 Support", description: "Dedicated customer service" },
 ];
 
 export function Footer() {
@@ -118,14 +112,44 @@ export function Footer() {
     <footer className="bg-gray-900 text-gray-300">
       {/* Main Footer */}
       <div className="container mx-auto px-4 py-12">
+        {/* Newsletter Section - Added back */}
+        <div className="max-w-2xl mx-auto mb-12 pb-12 border-b border-gray-800">
+          <div className="text-center">
+            <h3 className="text-2xl font-bold text-white mb-2">
+              Subscribe to Our Newsletter
+            </h3>
+            <p className="text-gray-400 mb-4">
+              Get the latest updates on new products and upcoming sales
+            </p>
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                className="flex-1 px-4 py-2 rounded-lg bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+                disabled={isLoading}
+              />
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="px-6 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg font-medium hover:from-blue-600 hover:to-indigo-600 transition-all duration-300 disabled:opacity-50"
+              >
+                {isLoading ? "Subscribing..." : isSubscribed ? "Subscribed! ✅" : "Subscribe"}
+              </button>
+            </form>
+          </div>
+        </div>
+
         {/* Top Section - Features */}
-        {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-12 mb-8 border-b border-gray-800">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pb-12 mb-8 border-b border-gray-800">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
               <div key={index} className="flex items-center gap-3 group">
                 <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Icon className={`w-5 h-5 ${feature.color}`} />
+                  <Icon className="w-5 h-5 text-blue-400" />
                 </div>
                 <div>
                   <h4 className="font-semibold text-white text-sm">{feature.title}</h4>
@@ -134,7 +158,7 @@ export function Footer() {
               </div>
             );
           })}
-        </div> */}
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8">
           {/* Brand Column */}
@@ -184,7 +208,7 @@ export function Footer() {
               </div>
             </div>
 
-            {/* Social Links - Using emojis */}
+            {/* Social Links */}
             <div>
               <h4 className="text-sm font-semibold text-white mb-3">Follow Us</h4>
               <div className="flex gap-2">
@@ -197,7 +221,7 @@ export function Footer() {
                     className={`w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 hover:scale-110 ${social.color}`}
                     aria-label={social.name}
                   >
-                    <span className="text-lg">{social.emoji}</span>
+                    <span className="text-lg">{social.icon}</span>
                   </a>
                 ))}
               </div>

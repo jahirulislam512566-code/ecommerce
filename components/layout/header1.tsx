@@ -1,4 +1,3 @@
-// components/layout/header1.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,16 +13,7 @@ import {
   User, 
   Heart,
   ChevronDown,
-  LogOut,
-  Settings,
-  Package
 } from "lucide-react";
-
-interface NavItem {
-  name: string;
-  href: string;
-  megaMenu?: MegaMenuItem[];
-}
 
 interface MegaMenuItem {
   category: string;
@@ -58,7 +48,7 @@ export function Header1() {
   
   const { data: session } = useSession();
   const { getTotalItems } = useCartStore();
-  const pathname = usePathname();
+  const pathname = usePathname(); // Now we'll use this
   const cartCount = getTotalItems();
 
   useEffect(() => {
@@ -74,6 +64,14 @@ export function Header1() {
     }
   };
 
+  // Helper to check if link is active
+  const isActive = (href: string) => {
+    if (href === "/") {
+      return pathname === href;
+    }
+    return pathname?.startsWith(href);
+  };
+
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${
       isScrolled ? "bg-white shadow-md" : "bg-white/95 backdrop-blur-sm border-b"
@@ -87,13 +85,18 @@ export function Header1() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-6">
-            <Link href="/" className="text-gray-700 hover:text-blue-600">Home</Link>
+            <Link 
+              href="/" 
+              className={`${isActive('/') ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'}`}
+            >
+              Home
+            </Link>
             <div 
               onMouseEnter={() => setMegaMenuOpen(true)}
               onMouseLeave={() => setMegaMenuOpen(false)}
               className="relative"
             >
-              <button className="flex items-center gap-1 text-gray-700 hover:text-blue-600">
+              <button className={`flex items-center gap-1 ${isActive('/products') ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'}`}>
                 Shop <ChevronDown className="w-4 h-4" />
               </button>
               {megaMenuOpen && (
@@ -117,8 +120,18 @@ export function Header1() {
                 </div>
               )}
             </div>
-            <Link href="/deals" className="text-gray-700 hover:text-blue-600">Deals</Link>
-            <Link href="/contact" className="text-gray-700 hover:text-blue-600">Contact</Link>
+            <Link 
+              href="/deals" 
+              className={`${isActive('/deals') ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'}`}
+            >
+              Deals
+            </Link>
+            <Link 
+              href="/contact" 
+              className={`${isActive('/contact') ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'}`}
+            >
+              Contact
+            </Link>
           </nav>
 
           {/* Actions */}
@@ -148,6 +161,9 @@ export function Header1() {
               <button className="p-2 hover:bg-gray-100 rounded-full">
                 <User className="w-5 h-5" />
               </button>
+              {session && (
+                <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></span>
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -183,11 +199,50 @@ export function Header1() {
                 <span className="text-xl font-bold">Menu</span>
                 <button onClick={() => setMobileMenuOpen(false)}><X className="w-6 h-6" /></button>
               </div>
+              {session && (
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="font-semibold">Welcome, {session.user?.name || 'User'}!</p>
+                  <p className="text-sm text-gray-600">{session.user?.email}</p>
+                </div>
+              )}
               <nav className="space-y-4">
-                <Link href="/" className="block py-2 text-gray-700 hover:text-blue-600">Home</Link>
-                <Link href="/products" className="block py-2 text-gray-700 hover:text-blue-600">Shop</Link>
-                <Link href="/deals" className="block py-2 text-gray-700 hover:text-blue-600">Deals</Link>
-                <Link href="/contact" className="block py-2 text-gray-700 hover:text-blue-600">Contact</Link>
+                <Link 
+                  href="/" 
+                  className={`block py-2 ${pathname === '/' ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Home
+                </Link>
+                <Link 
+                  href="/products" 
+                  className={`block py-2 ${pathname?.startsWith('/products') ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Shop
+                </Link>
+                <Link 
+                  href="/deals" 
+                  className={`block py-2 ${pathname === '/deals' ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Deals
+                </Link>
+                <Link 
+                  href="/contact" 
+                  className={`block py-2 ${pathname === '/contact' ? 'text-blue-600 font-semibold' : 'text-gray-700 hover:text-blue-600'}`}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Contact
+                </Link>
+                {!session && (
+                  <>
+                    <Link href="/auth/signin" className="block py-2 text-blue-600 font-medium">Sign In</Link>
+                    <Link href="/auth/signup" className="block py-2 text-gray-700">Sign Up</Link>
+                  </>
+                )}
+                {session && (
+                  <Link href="/api/auth/signout" className="block py-2 text-red-600">Sign Out</Link>
+                )}
               </nav>
             </div>
           </>

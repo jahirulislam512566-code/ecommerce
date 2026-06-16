@@ -57,38 +57,12 @@ const cartAPI = {
     if (!response.ok) throw new Error('Failed to remove from cart')
   },
 
- // Clear entire cart
-clearCart: async () => {
-  console.log("clearCart called - clearing all items");
-  
-  // Clear local state immediately
-  set({ items: [], isLoading: true });
-  
-  // Also clear localStorage immediately
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('cart-storage');
-    console.log("Local storage cleared");
-  }
-  
-  try {
-    if (isLoggedIn()) {
-      await cartAPI.clearCart();
-      console.log("Server cart cleared");
-    }
-    set({ error: null });
-    
-    // Dispatch event to notify all components
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('cart-updated'));
-      window.dispatchEvent(new Event('storage'));
-    }
-  } catch (error) {
-    console.error('Clear cart error:', error);
-    set({ error: 'Failed to clear cart' });
-  } finally {
-    set({ isLoading: false });
-  }
-},
+  async clearCart(): Promise<void> {
+    const response = await fetch('/api/cart', {
+      method: 'DELETE',
+    })
+    if (!response.ok) throw new Error('Failed to clear cart')
+  },
 
   async mergeCarts(localItems: CartItem[]): Promise<void> {
     const response = await fetch('/api/cart/merge', {
@@ -259,21 +233,34 @@ export const useCartStore = create<CartStore>()(
 
       // Clear entire cart
       clearCart: async () => {
-        set({ items: [], isLoading: true })
+        console.log("clearCart called - clearing all items");
+        
+        // Clear local state immediately
+        set({ items: [], isLoading: true });
+        
+        // Also clear localStorage immediately
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('cart-storage');
+          console.log("Local storage cleared");
+        }
         
         try {
           if (isLoggedIn()) {
-            await cartAPI.clearCart()
+            await cartAPI.clearCart();
+            console.log("Server cart cleared");
           }
-          // Clear localStorage
-          localStorage.removeItem('cart-storage')
-          set({ error: null })
-          dispatchCartUpdate()
+          set({ error: null });
+          
+          // Dispatch event to notify all components
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event('cart-updated'));
+            window.dispatchEvent(new Event('storage'));
+          }
         } catch (error) {
-          console.error('Clear cart error:', error)
-          set({ error: 'Failed to clear cart' })
+          console.error('Clear cart error:', error);
+          set({ error: 'Failed to clear cart' });
         } finally {
-          set({ isLoading: false })
+          set({ isLoading: false });
         }
       },
 

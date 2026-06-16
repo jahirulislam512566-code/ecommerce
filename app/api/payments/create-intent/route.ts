@@ -4,10 +4,10 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 
-// Initialize Stripe properly
+// Initialize Stripe properly with the version expected by your package types
 const stripe = process.env.STRIPE_SECRET_KEY 
   ? new Stripe(process.env.STRIPE_SECRET_KEY, {
-      apiVersion: "2025-02-24.acacia", // Adjusted to match standard typed API versions
+      apiVersion: "2026-05-27.dahlia",
     })
   : null;
 
@@ -73,9 +73,8 @@ export async function POST(request: NextRequest) {
     console.log("Order found:", order.orderNumber);
     console.log("Order total from DB:", order.total);
 
-    // Convert total to cents (Stripe requires integer amounts)
-    // If order.total is 15.50, amount is 1550 cents.
-    const amountInCents = Math.round(order.total * 100);
+    const numericTotal = order.total.toNumber();
+    const amountInCents = Math.round(numericTotal * 100);
     console.log("Calculated amount in cents:", amountInCents);
     
     if (amountInCents <= 0) {
@@ -86,27 +85,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create Stripe Payment Intent
-    console.log("Creating Stripe payment intent...");
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInCents, // FIXED: Using the calculated integer directly without double-multiplying
+    // Fixed: Dynamically build payment parameters to satisfy exactOptionalPropertyTypes
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
+      amount: amountInCents,
       currency: "usd",
-      
       metadata: {
         orderId: order.id,
-        // Safe string conversion for metadata values
         orderNumber: order.orderNumber ? order.orderNumber.toString() : "",
         userId: session?.user?.id || "guest",
       },
-      
-      // Handled safely: if email is empty string or null, fallback to undefined so Stripe ignores it
-      receipt_email: session?.user?.email || undefined, 
-      
       automatic_payment_methods: {
         enabled: true,
-        allow_redirects: "always", // Supports 3D Secure verification steps safely
+        allow_redirects: "always",
       },
-    });
+    };
+
+    // Only assign receipt_email if it is a valid, non-empty string
+    if (session?.user?.email) {
+      paymentIntentParams.receipt_email = session.user.email;
+    }
+
+    console.log("Creating Stripe payment intent...");
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
 
     console.log("Payment intent created:", paymentIntent.id);
     console.log("Client secret:", paymentIntent.client_secret ? "Yes" : "No");
@@ -126,7 +126,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Error creating payment intent:", error);
     
-    // Handle Stripe specific errors
     if (error instanceof Stripe.errors.StripeError) {
       console.error("Stripe error details:", {
         type: error.type,
@@ -143,7 +142,6 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Handle general errors
     const errorMessage = error instanceof Error ? error.message : "Failed to create payment intent";
     
     return NextResponse.json(

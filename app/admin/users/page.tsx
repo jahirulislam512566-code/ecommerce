@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Mail, Calendar, Shield, Edit2, Trash2, Search, Filter } from "lucide-react";
-import Image from "next/image";
+import { Mail, Calendar, Shield,  Trash2, Search } from "lucide-react";
 
 interface User {
   id: string;
@@ -30,7 +29,7 @@ export default function AdminUsers() {
     try {
       const response = await fetch("/api/admin/users");
       const data = await response.json();
-      setUsers(data.users);
+      setUsers(data.users || []);
     } catch (error) {
       console.error("Error fetching users:", error);
     } finally {
@@ -62,8 +61,8 @@ export default function AdminUsers() {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name?.toLowerCase().includes(search.toLowerCase()) ||
-                         user.email.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (user.name?.toLowerCase() || "").includes(search.toLowerCase()) ||
+                          user.email.toLowerCase().includes(search.toLowerCase());
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -110,7 +109,8 @@ export default function AdminUsers() {
             <div key={user.id} className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-lg">
-                  {user.name?.[0] || user.email[0].toUpperCase()}
+                  {/* Fixed line: Safely checks both name and email fallback bounds */}
+                  {user.name?.[0] || (user.email?.[0] || "U").toUpperCase()}
                 </div>
                 <div className="flex gap-1">
                   <select
@@ -146,7 +146,7 @@ export default function AdminUsers() {
               </div>
               <div className="mt-4 pt-3 border-t dark:border-gray-700">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {user._count.orders} orders placed
+                  {user._count?.orders ?? 0} orders placed
                 </p>
               </div>
             </div>

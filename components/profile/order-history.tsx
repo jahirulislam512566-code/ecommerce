@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, Eye, ChevronRight, ShoppingBag } from "lucide-react";
+import { Package, Eye, ChevronRight } from "lucide-react";
 
 interface Order {
   id: string;

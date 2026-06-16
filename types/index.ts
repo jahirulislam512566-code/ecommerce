@@ -3,7 +3,7 @@ import { Prisma, ProductStatus, ProductVisibility, OrderStatus, PaymentStatus, U
 // ============ Utility Types ============
 export type Nullable<T> = T | null;
 export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
-export type ApiResponse<T = any> = {
+export type ApiResponse<T = unknown> = { // Fixed: Changed default from any to unknown for safer strict rules
   success: boolean;
   data?: T;
   error?: string;
@@ -51,6 +51,13 @@ export interface ProductReview {
   };
 }
 
+export interface ProductDimensions {
+  weight?: number;
+  width?: number;
+  height?: number;
+  length?: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -69,7 +76,7 @@ export interface Product {
   featured: boolean;
   tags: string[];
   weight: number | null;
-  dimensions: Prisma.JsonValue;
+  dimensions: Prisma.JsonValue | ProductDimensions; // Fixed: Combined with structured typing for safe code access
   seoTitle: string | null;
   seoDescription: string | null;
   images: ProductImage[];
@@ -92,9 +99,22 @@ export interface Product {
   updatedAt: Date;
 }
 
-// ============ Order Types ============
+// ============ Order & Payment Types ============
 export type OrderStatusType = `${OrderStatus}`;
 export type PaymentStatusType = `${PaymentStatus}`;
+
+// Fixed: Added missing Payment interface definition requested by the Order array
+export interface Payment {
+  id: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatusType;
+  provider: "STRIPE" | "COD" | string;
+  transactionId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 export interface OrderItem {
   id: string;
@@ -136,7 +156,7 @@ export interface Order {
   deliveredAt: Date | null;
   cancelledAt: Date | null;
   items: OrderItem[];
-  payments: Payment[];
+  payments: Payment[]; // Now matches successfully
   createdAt: Date;
   updatedAt: Date;
 }

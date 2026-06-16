@@ -11,7 +11,6 @@ import {
   Users,
   BarChart3,
   Tag,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -42,6 +41,15 @@ interface Notification {
   link: string;
 }
 
+// Order type for API response
+interface Order {
+  id: string;
+  orderNumber: string;
+  total: number;
+  customerName: string;
+  createdAt: string;
+}
+
 export default function AdminLayout({
   children,
 }: {
@@ -55,7 +63,6 @@ export default function AdminLayout({
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [lastOrderCount, setLastOrderCount] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
 
   // Handle authentication and authorization
@@ -75,13 +82,15 @@ export default function AdminLayout({
     }
   }, [status, session, router]);
 
-  // Fetch initial order count
+  // Fetch initial order count and set mounted state
   useEffect(() => {
     const fetchInitialOrderCount = async () => {
       try {
         const response = await fetch("/api/admin/orders/count");
         const data = await response.json();
-        setLastOrderCount(data.count);
+        // Store count in a ref or use for initial check
+        const initialCount = data.count;
+        console.log(`Initial order count: ${initialCount}`);
       } catch (error) {
         console.error("Error fetching order count:", error);
       }
@@ -103,8 +112,8 @@ export default function AdminLayout({
         const data = await response.json();
         
         if (data.newOrders && data.newOrders.length > 0) {
-          // Add new order notifications
-          const newNotifications = data.newOrders.map((order: any) => ({
+          // Add new order notifications with proper typing
+          const newNotifications: Notification[] = data.newOrders.map((order: Order) => ({
             id: order.id,
             title: `New Order #${order.orderNumber}`,
             message: `$${order.total.toFixed(2)} from ${order.customerName}`,
@@ -120,9 +129,9 @@ export default function AdminLayout({
           const audio = new Audio("/notification.mp3");
           audio.play().catch(e => console.log("Audio play failed:", e));
           
-          // Show browser notification
+          // Show browser notification with proper type
           if (Notification.permission === "granted") {
-            newNotifications.forEach(notification => {
+            newNotifications.forEach((notification: Notification) => {
               new Notification(notification.title, {
                 body: notification.message,
                 icon: "/favicon.ico",
