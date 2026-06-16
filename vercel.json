@@ -1,9 +1,9 @@
 {
   "buildCommand": "npm run build",
-  "installCommand": "npm install --no-optional",
+  "installCommand": "npm install --include=optional",
   "framework": "nextjs",
   "regions": ["iad1"],
   "env": {
-    "NEXTAUTH_URL": "https://ecommerce.vercel.app"
+    "NEXTAUTH_URL": "https://your-domain.vercel.app"
   }
 }
