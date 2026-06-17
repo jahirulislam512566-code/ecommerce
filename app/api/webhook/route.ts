@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  // Stripe configured কিনা check
+  // Debug logs for Vercel
+  console.log("DATABASE_URL:", !!process.env.DATABASE_URL);
+  console.log("STRIPE_SECRET_KEY:", !!process.env.STRIPE_SECRET_KEY);
+  console.log(
+    "STRIPE_WEBHOOK_SECRET:",
+    !!process.env.STRIPE_WEBHOOK_SECRET
+  );
+
+  const stripe = getStripe();
+
   if (!stripe) {
     return NextResponse.json(
       { error: "Stripe is not configured" },
@@ -41,8 +50,8 @@ export async function POST(request: NextRequest) {
       signature,
       webhookSecret
     );
-  } catch (err) {
-    console.error("Webhook signature verification failed:", err);
+  } catch (error) {
+    console.error("Webhook signature verification failed:", error);
 
     return NextResponse.json(
       { error: "Invalid signature" },
@@ -109,7 +118,7 @@ export async function POST(request: NextRequest) {
     }
 
     default:
-      break;
+      console.log(`Unhandled event type: ${event.type}`);
   }
 
   return NextResponse.json({ received: true });
