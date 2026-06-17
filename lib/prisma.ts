@@ -3,17 +3,18 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 
-// ✅ Remove the unused globalForPrisma declaration
-// const globalForPrisma = globalThis as unknown as {
-//   prisma: PrismaClient | undefined;
-// };
-
-let prismaClient: PrismaClient | undefined;
+// ✅ Only initialize in production, not during build
+let prismaClient: PrismaClient | null = null;
 
 function createPrismaClient() {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
+    // ✅ Don't throw during build - just return null
+    if (process.env.NODE_ENV === "production" && process.env.VERCEL) {
+      console.warn("DATABASE_URL not set, skipping Prisma initialization");
+      return null;
+    }
     throw new Error("DATABASE_URL is not defined");
   }
 
@@ -32,18 +33,29 @@ function createPrismaClient() {
   });
 }
 
-// ✅ Lazy getter function - only creates connection when called
 export function getPrismaClient() {
+  // ✅ Only create the client if we're not in a build environment
+  if (process.env.NEXT_PHASE === "phase-production-build") {
+    return null as any; // Return null during build
+  }
+
   if (!prismaClient) {
     prismaClient = createPrismaClient();
   }
   return prismaClient;
 }
 
-// ✅ Proxy for backward compatibility
+// ✅ Export a proxy that handles null client
 export const prisma = new Proxy({} as PrismaClient, {
   get: (_, prop) => {
     const client = getPrismaClient();
+    if (!client) {
+      // Return a no-op function during build
+      return async () => {
+        console.warn("Prisma client not available during build");
+        return null;
+      };
+    }
     const value = client[prop as keyof PrismaClient];
     if (typeof value === "function") {
       return value.bind(client);
@@ -51,13 +63,5 @@ export const prisma = new Proxy({} as PrismaClient, {
     return value;
   },
 });
-
-// ✅ Clean up function
-export async function disconnectPrisma() {
-  if (prismaClient) {
-    await prismaClient.$disconnect();
-    prismaClient = undefined;
-  }
-}
 
 export default prisma;

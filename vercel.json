@@ -1,9 +1,15 @@
+
 {
-  "buildCommand": "npm run build",
-  "installCommand": "npm install --include=optional",
-  "framework": "nextjs",
-  "regions": ["iad1"],
-  "env": {
-    "NEXTAUTH_URL": "https://your-domain.vercel.app"
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "functions": {
+    "app/api/webhook/**/*.js": {
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    },
+    "app/api/webhook/**/*.ts": {
+      "maxDuration": 30,
+      "runtime": "nodejs20.x"
+    }
   }
 }
