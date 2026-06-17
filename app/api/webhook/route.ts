@@ -3,23 +3,19 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 
-// Ensure this route is never statically generated during build
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
-  const stripe = getStripe();
-  if (!stripe) {
-    console.error("[Webhook Error]: Stripe client could not be initialized.");
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
-  // 1. Pre-flight check: Environment variables
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    console.error("[Webhook Error]: STRIPE_WEBHOOK_SECRET is not defined.");
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  // 1. Initialize Stripe safely
+  let stripe: Stripe;
+  try {
+    stripe = getStripe();
+  } catch (error) {
+    console.error("[Webhook Error]: Stripe initialization failed:", error);
+    return NextResponse.json({ error: "Service Configuration Error" }, { status: 500 });
   }
 
-  // 2. Extract and verify signature
+  // 2. Extract raw body (Crucial: Do not use request.json())
   const body = await request.text();
   const signature = request.headers.get("stripe-signature");
 
@@ -27,8 +23,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
   }
 
-  let event: Stripe.Event;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error("[Webhook Error]: STRIPE_WEBHOOK_SECRET is not defined.");
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 
+  // 3. Verify Signature
+  let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
@@ -36,14 +38,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  // 3. Process events with dedicated handler logic
+  // 4. Process events
   try {
     switch (event.type) {
       case "payment_intent.succeeded": {
         const intent = event.data.object as Stripe.PaymentIntent;
         const orderId = intent.metadata?.orderId;
 
-        if (!orderId) throw new Error(`Missing orderId in metadata for Intent: ${intent.id}`);
+        if (!orderId) throw new Error(`Missing orderId for Intent: ${intent.id}`);
 
         await prisma.$transaction([
           prisma.order.update({
@@ -67,7 +69,7 @@ export async function POST(request: NextRequest) {
         const intent = event.data.object as Stripe.PaymentIntent;
         const orderId = intent.metadata?.orderId;
 
-        if (!orderId) throw new Error(`Missing orderId in metadata for failed Intent: ${intent.id}`);
+        if (!orderId) throw new Error(`Missing orderId for failed Intent: ${intent.id}`);
 
         await prisma.order.update({
           where: { id: orderId },
@@ -75,9 +77,6 @@ export async function POST(request: NextRequest) {
         });
         break;
       }
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
     }
   } catch (error) {
     console.error(`[Webhook Error]: Database operation failed: ${error}`);

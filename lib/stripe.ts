@@ -1,11 +1,21 @@
-import Stripe from "stripe";
+// lib/stripe.ts
+import Stripe from 'stripe';
 
-let stripe: Stripe | null = null;
+let stripeInstance: Stripe | null = null;
 
-export function getStripe() {
-  if (!stripe && process.env.STRIPE_SECRET_KEY) {
-    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+export function getStripe(): Stripe {
+  if (stripeInstance) return stripeInstance;
+
+  const apiKey = process.env.STRIPE_SECRET_KEY;
+  if (!apiKey) {
+    throw new Error("STRIPE_SECRET_KEY is missing in environment variables.");
   }
 
-  return stripe;
+  stripeInstance = new Stripe(apiKey, {
+    // Update this string to match the requirement in your error message
+    apiVersion: "2026-05-27.dahlia", 
+    typescript: true,
+  });
+
+  return stripeInstance;
 }
