@@ -3,49 +3,35 @@ import Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { prisma } from "@/lib/prisma";
 
+// 1. Force dynamic execution so Next.js doesn't try to static-analyze this route
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
-  // 1. Initialize Stripe safely
-  let stripe: Stripe;
+  // 2. Wrap everything in a try/catch to ensure we return a 500 instead of crashing the build
   try {
-    stripe = getStripe();
-  } catch (error) {
-    console.error("[Webhook Error]: Stripe initialization failed:", error);
-    return NextResponse.json({ error: "Service Configuration Error" }, { status: 500 });
-  }
+    const stripe = getStripe();
+    const body = await request.text();
+    const signature = request.headers.get("stripe-signature");
 
-  // 2. Extract raw body (Crucial: Do not use request.json())
-  const body = await request.text();
-  const signature = request.headers.get("stripe-signature");
+    if (!signature) {
+      return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    }
 
-  if (!signature) {
-    return NextResponse.json({ error: "Missing stripe-signature header" }, { status: 400 });
-  }
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error("STRIPE_WEBHOOK_SECRET is missing");
+      return NextResponse.json({ error: "Server Configuration Error" }, { status: 500 });
+    }
 
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    console.error("[Webhook Error]: STRIPE_WEBHOOK_SECRET is not defined.");
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
-  }
+    const event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
 
-  // 3. Verify Signature
-  let event: Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  } catch (err) {
-    console.error(`[Webhook Error]: Signature verification failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
-  }
-
-  // 4. Process events
-  try {
     switch (event.type) {
       case "payment_intent.succeeded": {
         const intent = event.data.object as Stripe.PaymentIntent;
         const orderId = intent.metadata?.orderId;
 
-        if (!orderId) throw new Error(`Missing orderId for Intent: ${intent.id}`);
+        if (!orderId) throw new Error("Missing orderId");
 
         await prisma.$transaction([
           prisma.order.update({
@@ -68,20 +54,19 @@ export async function POST(request: NextRequest) {
       case "payment_intent.payment_failed": {
         const intent = event.data.object as Stripe.PaymentIntent;
         const orderId = intent.metadata?.orderId;
-
-        if (!orderId) throw new Error(`Missing orderId for failed Intent: ${intent.id}`);
-
-        await prisma.order.update({
-          where: { id: orderId },
-          data: { status: "CANCELLED", paymentStatus: "FAILED" },
-        });
+        if (orderId) {
+          await prisma.order.update({
+            where: { id: orderId },
+            data: { status: "CANCELLED", paymentStatus: "FAILED" },
+          });
+        }
         break;
       }
     }
-  } catch (error) {
-    console.error(`[Webhook Error]: Database operation failed: ${error}`);
-    return NextResponse.json({ error: "Internal Database Error" }, { status: 500 });
-  }
 
-  return NextResponse.json({ received: true }, { status: 200 });
+    return NextResponse.json({ received: true }, { status: 200 });
+  } catch (error) {
+    console.error("[Webhook Error]:", error);
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  }
 }

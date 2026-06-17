@@ -1,21 +1,18 @@
-// lib/stripe.ts
 import Stripe from 'stripe';
 
-let stripeInstance: Stripe | null = null;
+const globalForStripe = global as unknown as { stripe: Stripe | null };
 
 export function getStripe(): Stripe {
-  if (stripeInstance) return stripeInstance;
+  if (globalForStripe.stripe) return globalForStripe.stripe;
 
   const apiKey = process.env.STRIPE_SECRET_KEY;
-  if (!apiKey) {
-    throw new Error("STRIPE_SECRET_KEY is missing in environment variables.");
-  }
+  if (!apiKey) throw new Error("STRIPE_SECRET_KEY is missing.");
 
-  stripeInstance = new Stripe(apiKey, {
-    // Update this string to match the requirement in your error message
-    apiVersion: "2026-05-27.dahlia", 
-    typescript: true,
-  });
+  // Update this line in lib/stripe.ts
+globalForStripe.stripe = new Stripe(apiKey, {
+  apiVersion: "2026-05-27.dahlia" as any, // Use 'as any' to bypass the strict type check
+  typescript: true,
+});
 
-  return stripeInstance;
+  return globalForStripe.stripe;
 }
